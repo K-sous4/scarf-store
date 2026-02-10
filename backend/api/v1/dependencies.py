@@ -1,28 +1,49 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
-from jose import JWTError, jwt
-from config.settings import SECRET_KEY, ALGORITHM
-
-security = HTTPBearer()
+from fastapi import Depends, HTTPException, status, Request
+from sqlalchemy.orm import Session
+from models.user import User
+from database.db import get_db
 
 
-async def get_current_user(credentials: HTTPAuthCredentials = Depends(security)):
+async def get_current_user(
+    request: Request,
+    db: Session = Depends(get_db)
+) -> User:
     """
-    Valida o token JWT e retorna o usuário atual.
-    Use como dependência em rotas que requerem autenticação.
+    Dependência para obter o usuário autenticado.
+    O middleware extrai o token e adiciona user_id ao request.state.
+    Esta dependência valida que o token foi fornecido e é válido.
     """
-    token = credentials.credentials
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token inválido"
-            )
-    except JWTError:
+    user_id = getattr(request.state, "user_id", None)
+    
+    if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido"
+            detail="Token não fornecido ou inválido",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-    return {"user_id": user_id}
+    
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuário não encontrado"
+        )
+    
+    return user
+
+
+async def get_current_admin(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    Dependência para obter um usuário admin.
+    Valida se o usuário tem role 'admin'.
+    """
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso negado. Privilégios de administrador necessários."
+        )
+    
+    return current_user

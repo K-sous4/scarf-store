@@ -2,14 +2,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from config.settings import DATABASE_URL
 
+# Base para modelos (declarado ANTES de criar o engine)
+Base = declarative_base()
+
 # Criar engine de banco de dados
 engine = create_engine(DATABASE_URL, echo=True)
 
 # Criar SessionLocal
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Base para modelos
-Base = declarative_base()
 
 
 def get_db():
