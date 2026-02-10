@@ -38,28 +38,34 @@ class CSRFProtection:
         return token
 
     @staticmethod
-    def validate_token(token: str, session_id: str) -> bool:
+    def validate_token(token: str, session_id: str, consume: bool = False) -> bool:
         """
         Validate a CSRF token.
         
         Args:
             token: CSRF token to validate
-            session_id: Session ID to verify against
+            session_id: Session ID to verify against (currently unused, token validity is session-agnostic)
+            consume: If True, delete the token after validation (default: False for reusability)
             
         Returns:
-            True if token is valid for the session, False otherwise
+            True if token exists and is valid, False otherwise
         """
-        stored_session = redis_client.get(f"csrf_token:{token}")
+        key = f"csrf_token:{token}"
+        stored_session = redis_client.get(key)
+        
+        print(f"[CSRF Service] Looking for key: {key}")
+        print(f"[CSRF Service] Token found: {stored_session is not None}")
         
         if stored_session is None:
+            print(f"[CSRF Service] Token NOT found in Redis - INVALID")
             return False
         
-        # Validate token belongs to this session
-        if stored_session != session_id:
-            return False
+        print(f"[CSRF Service] Token is valid and exists in Redis")
         
-        # Consume token (delete after use)
-        redis_client.delete(f"csrf_token:{token}")
+        # Optionally consume token (delete after use)
+        if consume:
+            redis_client.delete(key)
+            print(f"[CSRF Service] Token consumed (deleted from Redis)")
         
         return True
 

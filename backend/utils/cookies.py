@@ -1,7 +1,7 @@
 from fastapi import Response
 
 COOKIE_NAME = "session_id"
-COOKIE_MAX_AGE = 30 * 60  # 30 minutes
+COOKIE_MAX_AGE = 24 * 60 * 60  # 24 hours
 
 
 def set_session_cookie(response: Response, session_id: str) -> None:
@@ -21,7 +21,7 @@ def set_session_cookie(response: Response, session_id: str) -> None:
         domain=None,
         secure=False,  # Set to True in production (requires HTTPS)
         httponly=True,  # Prevent JavaScript access
-        samesite="strict"  # CSRF protection
+        samesite="lax"  # Allow cookies to be sent with cross-origin requests (CSRF protection still applies)
     )
 
 

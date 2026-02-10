@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 from models.user import User
 from database.db import get_db
 from services.session import session_manager
+import logging
+
+logger = logging.getLogger(__name__)
 
 COOKIE_NAME = "session_id"
 
@@ -17,6 +20,10 @@ async def get_current_user(
     """
     # Extract session ID from cookie
     session_id = request.cookies.get(COOKIE_NAME)
+    
+    logger.info(f"[Dependencies] Cookies in request: {dict(request.cookies)}")
+    logger.info(f"[Dependencies] Looking for session_id cookie: {session_id}")
+    logger.info(f"[Dependencies] Request headers: {dict(request.headers)}")
     
     if not session_id:
         raise HTTPException(

@@ -13,7 +13,7 @@ class SessionManager:
         """Initialize Redis connection."""
         self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
         self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
-        self.session_ttl = 30 * 60  # 30 minutes in seconds
+        self.session_ttl = 24 * 60 * 60  # 24 hours in seconds
 
     def create_session(self, user_id: int, username: str, role: str) -> str:
         """

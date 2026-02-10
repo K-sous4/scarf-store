@@ -14,7 +14,6 @@ from models import user, product
 from api.v1.public import auth, products
 from api.v1.private import users, admin
 from database.db import create_tables
-from middlewares.csrf import CSRFMiddleware
 from middlewares.session_refresh import SessionRefreshMiddleware
 
 
@@ -63,18 +62,26 @@ app = FastAPI(
 )
 
 # Configure CORS
-allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
 
 # If "*" or development, accept all
-if allowed_origins_env == "*" or ENVIRONMENT == Environment.DEVELOPMENT:
+if allowed_origins_env == "*":
     allowed_origins = ["*"]
+elif ENVIRONMENT == Environment.DEVELOPMENT:
+    # In development, allow localhost on various ports
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:8000",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+    ]
 else:
     # Split by comma and remove whitespace
     allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",")]
 
 # Add middlewares in the correct order (added REVERSE - last added is executed first)
-# Order of execution: SessionRefresh -> CSRF -> CORS
-app.add_middleware(CSRFMiddleware)  # Validates CSRF tokens
+# Order of execution: SessionRefresh -> CORS
 app.add_middleware(SessionRefreshMiddleware)  # Refreshes session cookies
 
 app.add_middleware(

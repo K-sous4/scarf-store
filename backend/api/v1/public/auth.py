@@ -6,7 +6,6 @@ from utils.security import hash_password, verify_password
 from utils.cookies import set_session_cookie, refresh_session_cookie, COOKIE_NAME
 from database.db import get_db
 from services.session import session_manager
-from services.csrf import csrf_protection
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -23,8 +22,7 @@ class LoginRequest(BaseModel):
 
 
 class AuthResponse(BaseModel):
-    message: str
-    csrf_token: str
+    user: 'ProfileResponse'
 
 
 class LogoutResponse(BaseModel):
@@ -71,13 +69,16 @@ async def sign_in(request: SignUpRequest, response: Response, db: Session = Depe
         role=new_user.role
     )
     
-    # Generate CSRF token
-    csrf_token = csrf_protection.generate_token(session_id)
-    
     # Set secure session cookie
     set_session_cookie(response, session_id)
     
-    return {"message": "User registered successfully", "csrf_token": csrf_token}
+    return {
+        "user": {
+            "id": new_user.id,
+            "username": new_user.username,
+            "role": new_user.role
+        }
+    }
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -102,13 +103,16 @@ async def login(request: LoginRequest, response: Response, db: Session = Depends
         role=user.role
     )
     
-    # Generate CSRF token
-    csrf_token = csrf_protection.generate_token(session_id)
-    
     # Set secure session cookie
     set_session_cookie(response, session_id)
     
-    return {"message": "Login successful", "csrf_token": csrf_token}
+    return {
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "role": user.role
+        }
+    }
 
 
 @router.post("/logout", response_model=LogoutResponse)
@@ -119,8 +123,6 @@ async def logout(http_request: Request, response: Response):
     session_id = http_request.cookies.get(COOKIE_NAME)
     
     if session_id:
-        # Invalidate all CSRF tokens for this session
-        csrf_protection.invalidate_all_tokens(session_id)
         # Invalidate session
         session_manager.invalidate_session(session_id)
     
@@ -175,6 +177,18 @@ async def get_profile(http_request: Request, response: Response, db: Session = D
         "id": user.id,
         "username": user.username,
         "role": user.role
+    }
+
+
+@router.get("/debug")
+async def debug_cookies(http_request: Request):
+    """
+    Debug endpoint to see what cookies the server is receiving
+    """
+    return {
+        "cookies_received": dict(http_request.cookies),
+        "origin": http_request.headers.get("origin"),
+        "referer": http_request.headers.get("referer"),
     }
 
 
