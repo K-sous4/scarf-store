@@ -1,10 +1,12 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Request
+from fastapi import APIRouter, HTTPException, status, Depends, Request, Response
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from models.user import User
-from services.auth import create_access_token
 from utils.security import hash_password, verify_password
+from utils.cookies import set_session_cookie, refresh_session_cookie, COOKIE_NAME
 from database.db import get_db
+from services.session import session_manager
+from services.csrf import csrf_protection
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -20,10 +22,9 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user: dict
+class AuthResponse(BaseModel):
+    message: str
+    csrf_token: str
 
 
 class LogoutResponse(BaseModel):
@@ -33,24 +34,24 @@ class LogoutResponse(BaseModel):
 class ProfileResponse(BaseModel):
     id: int
     username: str
-    email: str | None
     role: str
 
 
-@router.post("/sign-in", response_model=LoginResponse)
-async def sign_in(request: SignUpRequest, db: Session = Depends(get_db)):
+@router.post("/sign-in", response_model=AuthResponse)
+async def sign_in(request: SignUpRequest, response: Response, db: Session = Depends(get_db)):
     """
-    Registra um novo usuário e retorna um token JWT
+    Register a new user and create a secure session cookie
     """
-    # Verificar se usuário já existe
+    # Check if user already exists
     existing_user = db.query(User).filter(User.username == request.username).first()
     if existing_user:
+        # Generic error message to prevent username enumeration
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username já registrado"
+            detail="Registration failed"
         )
     
-    # Criar novo usuário
+    # Create new user
     hashed_password = hash_password(request.password)
     new_user = User(
         username=request.username,
@@ -63,103 +64,117 @@ async def sign_in(request: SignUpRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
-    # Criar token
-    access_token = create_access_token(data={"sub": str(new_user.id)})
+    # Create session
+    session_id = session_manager.create_session(
+        user_id=new_user.id,
+        username=new_user.username,
+        role=new_user.role
+    )
     
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": new_user.id,
-            "username": new_user.username,
-            "email": new_user.email
-        }
-    }
+    # Generate CSRF token
+    csrf_token = csrf_protection.generate_token(session_id)
+    
+    # Set secure session cookie
+    set_session_cookie(response, session_id)
+    
+    return {"message": "User registered successfully", "csrf_token": csrf_token}
 
 
-@router.post("/login", response_model=LoginResponse)
-async def login(request: LoginRequest, db: Session = Depends(get_db)):
+@router.post("/login", response_model=AuthResponse)
+async def login(request: LoginRequest, response: Response, db: Session = Depends(get_db)):
     """
-    Faz login e retorna um token JWT
+    Authenticate user and create a secure session cookie
     """
-    # Buscar usuário
+    # Find user
     user = db.query(User).filter(User.username == request.username).first()
     
     if not user or not verify_password(request.password, user.hashed_password):
+        # Generic error message to prevent username enumeration
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Username ou senha inválidos"
+            detail="Authentication failed"
         )
     
-    # Criar token
-    access_token = create_access_token(data={"sub": str(user.id)})
+    # Create session
+    session_id = session_manager.create_session(
+        user_id=user.id,
+        username=user.username,
+        role=user.role
+    )
     
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email
-        }
-    }
+    # Generate CSRF token
+    csrf_token = csrf_protection.generate_token(session_id)
+    
+    # Set secure session cookie
+    set_session_cookie(response, session_id)
+    
+    return {"message": "Login successful", "csrf_token": csrf_token}
 
 
 @router.post("/logout", response_model=LogoutResponse)
-async def logout(http_request: Request):
+async def logout(http_request: Request, response: Response):
     """
-    Faz logout (no backend é apenas uma confirmação)
-    O token deve ser removido no frontend
+    Invalidate session and clear session cookie
     """
-    from middlewares.authentication import AuthenticationMiddleware
-    auth_header = http_request.headers.get("Authorization")
+    session_id = http_request.cookies.get(COOKIE_NAME)
     
-    if not auth_header:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token não fornecido"
-        )
+    if session_id:
+        # Invalidate all CSRF tokens for this session
+        csrf_protection.invalidate_all_tokens(session_id)
+        # Invalidate session
+        session_manager.invalidate_session(session_id)
     
-    # O logout real seria implementado com blacklist de tokens se necessário
-    return {"message": "Logout realizado com sucesso. Remova o token no cliente."}
+    # Clear session cookie
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        path="/",
+        domain=None
+    )
+    
+    return {"message": "Logout successful"}
 
 
 @router.get("/profile", response_model=ProfileResponse)
-async def get_profile(http_request: Request, db: Session = Depends(get_db)):
+async def get_profile(http_request: Request, response: Response, db: Session = Depends(get_db)):
     """
-    Obtém o perfil do usuário autenticado.
-    Extrai e valida o token da requisição.
+    Get authenticated user's profile using session cookie.
+    Returns minimal user information to prevent data leakage.
+    Refreshes session cookie on each request.
     """
-    from middlewares.authentication import AuthenticationMiddleware
+    session_id = http_request.cookies.get(COOKIE_NAME)
     
-    token = AuthenticationMiddleware._extract_token(http_request)
-    
-    if not token:
+    if not session_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token não fornecido"
+            detail="Not authenticated"
         )
     
-    user_id = AuthenticationMiddleware._validate_token(token)
+    session_data = session_manager.get_session(session_id)
     
-    if not user_id:
+    if not session_data:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido ou expirado"
+            detail="Session expired or invalid"
         )
     
-    user = db.query(User).filter(User.id == int(user_id)).first()
+    user = db.query(User).filter(User.id == session_data["user_id"]).first()
     
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Usuário não encontrado"
+            detail="User not found"
         )
+    
+    # Refresh session TTL on Redis
+    session_manager.refresh_session(session_id)
+    
+    # Refresh session cookie (extends expiration on browser)
+    refresh_session_cookie(response, session_id)
     
     return {
         "id": user.id,
         "username": user.username,
-        "email": user.email,
         "role": user.role
     }
+
 

@@ -9,12 +9,13 @@ from contextlib import asynccontextmanager
 # Load .env file
 load_dotenv()
 
-# Import models ANTES de criar as tabelas
+# Import models BEFORE creating tables
 from models import user, product
 from api.v1.public import auth, products
 from api.v1.private import users, admin
 from database.db import create_tables
-from middlewares import AuthenticationMiddleware
+from middlewares.csrf import CSRFMiddleware
+from middlewares.session_refresh import SessionRefreshMiddleware
 
 
 # Define environment modes
@@ -38,19 +39,19 @@ else:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Gerencia o ciclo de vida da aplicação (startup e shutdown)
+    Manages application lifecycle (startup and shutdown)
     """
     # Startup
     try:
         create_tables()
-        logging.info("✓ Tabelas criadas com sucesso!")
+        logging.info("✓ Tables created successfully!")
     except Exception as e:
-        logging.error(f"✗ Erro ao criar tabelas: {e}")
+        logging.error(f"✗ Error creating tables: {e}")
     
     yield
     
     # Shutdown
-    logging.info("Aplicação encerrada")
+    logging.info("Application shutdown")
 
 
 # Create FastAPI app with appropriate settings
@@ -61,15 +62,20 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configurar CORS
+# Configure CORS
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
 
-# Se for "*" ou desenvolvimento, aceitar tudo
+# If "*" or development, accept all
 if allowed_origins_env == "*" or ENVIRONMENT == Environment.DEVELOPMENT:
     allowed_origins = ["*"]
 else:
-    # Separar por vírgula e remover espaços em branco
+    # Split by comma and remove whitespace
     allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",")]
+
+# Add middlewares in the correct order (added REVERSE - last added is executed first)
+# Order of execution: SessionRefresh -> CSRF -> CORS
+app.add_middleware(CSRFMiddleware)  # Validates CSRF tokens
+app.add_middleware(SessionRefreshMiddleware)  # Refreshes session cookies
 
 app.add_middleware(
     CORSMiddleware,
@@ -79,11 +85,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Incluir rotas públicas
+# Include public routes
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(products.router, prefix="/api/v1")
 
-# Incluir rotas privadas (protegidas)
+# Include private routes (protected)
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 

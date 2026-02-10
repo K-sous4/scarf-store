@@ -10,8 +10,6 @@ services:
       POSTGRES_DB: scarf_store_db
     ports:
       - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
     networks:
       - scarf_network
     healthcheck:
@@ -20,8 +18,19 @@ services:
       timeout: 5s
       retries: 5
 
-volumes:
-  postgres_data:
+  redis:
+    image: redis:7-alpine
+    container_name: scarf_store_cache
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly no
+    networks:
+      - scarf_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   scarf_network:
