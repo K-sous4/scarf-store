@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from models.user import User
 from database.db import get_db
+from middlewares.authentication import AuthenticationMiddleware
 
 
 async def get_current_user(
@@ -10,18 +11,29 @@ async def get_current_user(
 ) -> User:
     """
     Dependência para obter o usuário autenticado.
-    O middleware extrai o token e adiciona user_id ao request.state.
-    Esta dependência valida que o token foi fornecido e é válido.
+    Extrai e valida o token JWT apenas quando chamada (não global).
     """
-    user_id = getattr(request.state, "user_id", None)
+    # Extrair token do header
+    token = AuthenticationMiddleware._extract_token(request)
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token não fornecido",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Validar token
+    user_id = AuthenticationMiddleware._validate_token(token)
     
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token não fornecido ou inválido",
+            detail="Token inválido ou expirado",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # Buscar usuário no banco
     user = db.query(User).filter(User.id == int(user_id)).first()
     
     if not user:

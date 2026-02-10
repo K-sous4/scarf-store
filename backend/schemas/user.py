@@ -3,8 +3,8 @@ from datetime import datetime
 
 
 class UserBase(BaseModel):
-    email: EmailStr
-    full_name: str
+    username: str
+    email: EmailStr | None = None
 
 
 class UserCreate(UserBase):
@@ -12,12 +12,13 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    full_name: str | None = None
+    username: str | None = None
     email: EmailStr | None = None
 
 
 class UserResponse(UserBase):
     id: int
+    role: str
     created_at: datetime
     updated_at: datetime
 

@@ -61,21 +61,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Adicionar middleware de autenticação (nativo do FastAPI)
-app.add_middleware(AuthenticationMiddleware)
-
 # Configurar CORS
-allowed_origins = [
-    "http://localhost:3000",
-    "http://localhost:8080",
-    "http://localhost:5173",  # Vite default
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:8080",
-    "http://127.0.0.1:5173",
-]
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
 
-if ENVIRONMENT == Environment.DEVELOPMENT:
-    allowed_origins.append("*")  # Permite todos em development
+# Se for "*" ou desenvolvimento, aceitar tudo
+if allowed_origins_env == "*" or ENVIRONMENT == Environment.DEVELOPMENT:
+    allowed_origins = ["*"]
+else:
+    # Separar por vírgula e remover espaços em branco
+    allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",")]
 
 app.add_middleware(
     CORSMiddleware,

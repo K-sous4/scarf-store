@@ -36,8 +36,8 @@ async def list_users(
         "users": [
             {
                 "id": u.id,
+                "username": u.username,
                 "email": u.email,
-                "full_name": u.full_name,
                 "role": u.role
             }
             for u in users

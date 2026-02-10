@@ -9,14 +9,14 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 class UserUpdateRequest(BaseModel):
-    full_name: str | None = None
+    username: str | None = None
     email: EmailStr | None = None
 
 
 class UserResponse(BaseModel):
     id: int
-    email: str
-    full_name: str | None
+    username: str
+    email: str | None
     role: str
     
     class Config:
@@ -40,8 +40,21 @@ async def update_profile(
     """
     Atualiza o perfil do usuário autenticado
     """
-    if request.full_name:
-        current_user.full_name = request.full_name
+    if request.username:
+        # Verificar se username já existe
+        existing_user = db.query(User).filter(
+            User.username == request.username,
+            User.id != current_user.id
+        ).first()
+        
+        if existing_user:
+            from fastapi import HTTPException, status
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username já está em uso"
+            )
+        
+        current_user.username = request.username
     
     if request.email:
         # Verificar se email já existe

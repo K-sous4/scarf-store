@@ -10,13 +10,13 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 class SignUpRequest(BaseModel):
-    email: EmailStr
+    username: str
     password: str
-    full_name: str = ""
+    email: EmailStr | None = None
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    username: str
     password: str
 
 
@@ -32,8 +32,9 @@ class LogoutResponse(BaseModel):
 
 class ProfileResponse(BaseModel):
     id: int
-    email: str
-    full_name: str | None
+    username: str
+    email: str | None
+    role: str
 
 
 @router.post("/sign-in", response_model=LoginResponse)
@@ -42,19 +43,19 @@ async def sign_in(request: SignUpRequest, db: Session = Depends(get_db)):
     Registra um novo usuário e retorna um token JWT
     """
     # Verificar se usuário já existe
-    existing_user = db.query(User).filter(User.email == request.email).first()
+    existing_user = db.query(User).filter(User.username == request.username).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email já registrado"
+            detail="Username já registrado"
         )
     
     # Criar novo usuário
     hashed_password = hash_password(request.password)
     new_user = User(
+        username=request.username,
         email=request.email,
         hashed_password=hashed_password,
-        full_name=request.full_name or request.email.split("@")[0],
         role="user"
     )
     
@@ -70,8 +71,8 @@ async def sign_in(request: SignUpRequest, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "user": {
             "id": new_user.id,
-            "email": new_user.email,
-            "full_name": new_user.full_name
+            "username": new_user.username,
+            "email": new_user.email
         }
     }
 
@@ -82,12 +83,12 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
     Faz login e retorna um token JWT
     """
     # Buscar usuário
-    user = db.query(User).filter(User.email == request.email).first()
+    user = db.query(User).filter(User.username == request.username).first()
     
     if not user or not verify_password(request.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email ou senha inválidos"
+            detail="Username ou senha inválidos"
         )
     
     # Criar token
@@ -98,8 +99,8 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "user": {
             "id": user.id,
-            "email": user.email,
-            "full_name": user.full_name
+            "username": user.username,
+            "email": user.email
         }
     }
 
@@ -110,6 +111,7 @@ async def logout(http_request: Request):
     Faz logout (no backend é apenas uma confirmação)
     O token deve ser removido no frontend
     """
+    from middlewares.authentication import AuthenticationMiddleware
     auth_header = http_request.headers.get("Authorization")
     
     if not auth_header:
@@ -126,14 +128,24 @@ async def logout(http_request: Request):
 async def get_profile(http_request: Request, db: Session = Depends(get_db)):
     """
     Obtém o perfil do usuário autenticado.
-    O middleware já validou o token e adicionou user_id ao request.state
+    Extrai e valida o token da requisição.
     """
-    user_id = getattr(http_request.state, "user_id", None)
+    from middlewares.authentication import AuthenticationMiddleware
+    
+    token = AuthenticationMiddleware._extract_token(http_request)
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token não fornecido"
+        )
+    
+    user_id = AuthenticationMiddleware._validate_token(token)
     
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Usuário não autenticado"
+            detail="Token inválido ou expirado"
         )
     
     user = db.query(User).filter(User.id == int(user_id)).first()
@@ -146,7 +158,8 @@ async def get_profile(http_request: Request, db: Session = Depends(get_db)):
     
     return {
         "id": user.id,
+        "username": user.username,
         "email": user.email,
-        "full_name": user.full_name
+        "role": user.role
     }
 
