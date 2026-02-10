@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: scarf_store_db
+    environment:
+      POSTGRES_USER: scarf_user
+      POSTGRES_PASSWORD: scarf_password
+      POSTGRES_DB: scarf_store_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - scarf_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scarf_user -d scarf_store_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+
+networks:
+  scarf_network:
+    driver: bridge
