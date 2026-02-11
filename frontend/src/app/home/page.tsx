@@ -3,13 +3,14 @@ import { ProtectedRoute } from '@/components/ProtectedRoute'
 
 function HomeContent() {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-amber-100">
       <MainNavigation />
-      <main className="flex-1">
+      <main className="flex-1 bg-amber-100">
         <HeroBanner />
         
         {/* Products Section */}
-        <section id="products" className="max-w-6xl mx-auto px-4 py-16">
+        <section id="products" className="bg-amber-100 w-full">
+          <div className="max-w-6xl mx-auto px-4 py-16">
           <div className="mb-12">
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Nossa Coleção</h2>
             <p className="text-gray-600 text-lg">
@@ -17,6 +18,7 @@ function HomeContent() {
             </p>
           </div>
           <ProductGrid />
+        </div>
         </section>
       </main>
       

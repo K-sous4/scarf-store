@@ -22,9 +22,9 @@ export default function ProductCard({ product }: ProductCardProps) {
   const finalPrice = product.discount_price || product.price
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+    <div className="bg-amber-50 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
       {/* Product Image */}
-      <div className="bg-gray-200 h-56 flex items-center justify-center overflow-hidden relative">
+      <div className="bg-gray-100 h-56 flex items-center justify-center overflow-hidden relative">
         {product.images && product.images[0] ? (
           <Image
             src={product.images[0]}
@@ -53,16 +53,16 @@ export default function ProductCard({ product }: ProductCardProps) {
 
       {/* Product Info */}
       <div className="p-4">
-        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+        <p className="text-xs text-amber-800 uppercase tracking-wider mb-1">
           {product.sku}
         </p>
         
-        <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+        <h3 className="text-lg font-semibold text-amber-900 mb-2 line-clamp-2">
           {product.name}
         </h3>
 
         {product.short_description && (
-          <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+          <p className="text-sm text-amber-700 mb-3 line-clamp-2">
             {product.short_description}
           </p>
         )}
@@ -70,7 +70,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         {/* Color Badge */}
         {product.color && (
           <div className="flex gap-2 mb-3">
-            <span className="inline-block px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+            <span className="inline-block px-2 py-1 bg-amber-200 text-amber-900 text-xs rounded">
               {product.color}
             </span>
           </div>
@@ -78,11 +78,11 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         {/* Price */}
         <div className="flex items-baseline gap-2 mb-3">
-          <span className="text-2xl font-bold text-primary">
+          <span className="text-2xl font-bold text-amber-900">
             ${finalPrice.toFixed(2)}
           </span>
           {product.discount_price && (
-            <span className="text-sm text-gray-500 line-through">
+            <span className="text-sm text-amber-600 line-through">
               ${product.price.toFixed(2)}
             </span>
           )}

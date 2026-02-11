@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="bg-gray-50 text-gray-900">
+      <body className="bg-amber-100 text-gray-900">
         <ErrorBoundary>
           {children}
         </ErrorBoundary>

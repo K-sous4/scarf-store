@@ -26,12 +26,20 @@ function AdminDashboardContent() {
             <h1 className="text-2xl font-bold">🧣 Scarf Store Admin</h1>
             <p className="text-amber-100 text-sm">Bem-vindo, {user?.full_name || user?.email}</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="bg-amber-800 hover:bg-amber-900 px-4 py-2 rounded-lg transition duration-200"
-          >
-            🚪 Sair
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push('/')}
+              className="bg-amber-800 hover:bg-amber-900 px-4 py-2 rounded-lg transition duration-200"
+            >
+              ← Voltar ao Início
+            </button>
+            <button
+              onClick={handleLogout}
+              className="bg-amber-800 hover:bg-amber-900 px-4 py-2 rounded-lg transition duration-200"
+            >
+              🚪 Sair
+            </button>
+          </div>
         </div>
       </header>
 

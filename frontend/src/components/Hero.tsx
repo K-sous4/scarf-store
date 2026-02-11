@@ -10,17 +10,17 @@
  */
 export default function HeroBanner() {
   return (
-    <section className="bg-gradient-to-r from-primary to-secondary text-white py-20">
+    <section className="bg-gradient-to-r from-amber-700 to-amber-600 text-white py-20">
       <div className="max-w-6xl mx-auto px-4 text-center">
         <h2 className="text-5xl font-bold mb-4">Bem-vindo ao Scarf Store</h2>
         <p className="text-xl opacity-90 mb-8">
           Descubra nossa coleção premium de lenços e acessórios
         </p>
         <div className="flex gap-4 justify-center">
-          <button className="bg-white text-primary px-8 py-3 rounded-lg font-semibold hover:bg-accent transition">
+          <button className="bg-white text-amber-700 px-8 py-3 rounded-lg font-semibold hover:bg-amber-50 transition">
             Comprar Agora
           </button>
-          <button className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-primary transition">
+          <button className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-amber-700 transition">
             Saiba Mais
           </button>
         </div>
