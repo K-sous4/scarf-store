@@ -10,9 +10,9 @@ from contextlib import asynccontextmanager
 load_dotenv()
 
 # Import models BEFORE creating tables
-from models import user, product
+from models import user, product, category, color, material
 from api.v1.public import auth, products
-from api.v1.private import users, admin
+from api.v1.private import users, admin, parameters
 from database.db import create_tables
 from middlewares.session_refresh import SessionRefreshMiddleware
 
@@ -99,6 +99,7 @@ app.include_router(products.router, prefix="/api/v1")
 # Include private routes (protected)
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
+app.include_router(parameters.router, prefix="/api/v1")
 
 
 @app.get("/ping")

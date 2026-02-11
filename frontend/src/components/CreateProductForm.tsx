@@ -6,9 +6,28 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation } from '@/lib/hooks'
+import { apiClient } from '@/lib/api-client'
 import type { Product } from '@/types'
+
+interface Category {
+  id: number
+  name: string
+  slug: string
+}
+
+interface Color {
+  id: number
+  name: string
+  hex_code: string | null
+}
+
+interface Material {
+  id: number
+  name: string
+  slug: string
+}
 
 interface ProductFormData {
   sku: string
@@ -21,6 +40,7 @@ interface ProductFormData {
   stock: number
   color: string
   material: string
+  images?: string[]
   is_featured: boolean
   is_new: boolean
   is_active: boolean
@@ -37,6 +57,7 @@ const defaultFormData: ProductFormData = {
   stock: 0,
   color: '',
   material: '',
+  images: [],
   is_featured: false,
   is_new: true,
   is_active: true,
@@ -45,7 +66,42 @@ const defaultFormData: ProductFormData = {
 export function CreateProductForm() {
   const [formData, setFormData] = useState<ProductFormData>(defaultFormData)
   const [validationErrors, setValidationErrors] = useState<Partial<ProductFormData>>({})
+  const [categories, setCategories] = useState<Category[]>([])
+  const [colors, setColors] = useState<Color[]>([])
+  const [materials, setMaterials] = useState<Material[]>([])
+  const [loadingOptions, setLoadingOptions] = useState(true)
   const { execute: createProduct, loading, error, success } = useMutation<Product>('POST')
+
+  // Fetch categories and colors
+  useEffect(() => {
+    const fetchOptions = async () => {
+      try {
+        const [categoriesRes, colorsRes, materialsRes] = await Promise.all([
+          apiClient.get<Category[]>('/v1/admin/parameters/categories'),
+          apiClient.get<Color[]>('/v1/admin/parameters/colors'),
+          apiClient.get<Material[]>('/v1/admin/parameters/materials'),
+        ])
+
+        if (!categoriesRes.error && categoriesRes.data) {
+          setCategories(categoriesRes.data)
+        }
+
+        if (!colorsRes.error && colorsRes.data) {
+          setColors(colorsRes.data)
+        }
+
+        if (!materialsRes.error && materialsRes.data) {
+          setMaterials(materialsRes.data)
+        }
+      } catch (err) {
+        console.error('Erro ao carregar opções:', err)
+      } finally {
+        setLoadingOptions(false)
+      }
+    }
+
+    fetchOptions()
+  }, [])
 
   const validateForm = (): boolean => {
     const errors: Partial<ProductFormData> = {}
@@ -311,15 +367,20 @@ export function CreateProductForm() {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Cor
           </label>
-          <input
-            type="text"
+          <select
             name="color"
             value={formData.color}
             onChange={handleChange}
-            placeholder="ex: Vermelho"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-700 bg-white text-gray-900"
-            disabled={loading}
-          />
+            disabled={loading || loadingOptions}
+          >
+            <option value="">Selecione uma cor...</option>
+            {colors.map((color) => (
+              <option key={color.id} value={color.name}>
+                {color.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Material */}
@@ -327,15 +388,20 @@ export function CreateProductForm() {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Material
           </label>
-          <input
-            type="text"
+          <select
             name="material"
             value={formData.material}
             onChange={handleChange}
-            placeholder="ex: Lã 100%"
+            disabled={loading || loadingOptions}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-700 bg-white text-gray-900"
-            disabled={loading}
-          />
+          >
+            <option value="">Selecione um material...</option>
+            {materials.map((material) => (
+              <option key={material.id} value={material.name}>
+                {material.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Category */}
@@ -343,17 +409,22 @@ export function CreateProductForm() {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Categoria *
           </label>
-          <input
-            type="text"
+          <select
             name="category"
             value={formData.category}
             onChange={handleChange}
-            placeholder="ex: Cachecóis"
             className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-700 bg-white text-gray-900 ${
               validationErrors.category ? 'border-red-500' : 'border-gray-300'
             }`}
-            disabled={loading}
-          />
+            disabled={loading || loadingOptions}
+          >
+            <option value="">Selecione uma categoria...</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.name}>
+                {category.name}
+              </option>
+            ))}
+          </select>
           {validationErrors.category && (
             <p className="text-red-600 text-sm mt-1">{validationErrors.category}</p>
           )}
@@ -405,6 +476,60 @@ export function CreateProductForm() {
         {validationErrors.description && (
           <p className="text-red-600 text-sm mt-1">{validationErrors.description}</p>
         )}
+      </div>
+
+      {/* Imagens */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Imagens (URLs)
+        </label>
+        <div className="space-y-2">
+          {formData.images && formData.images.length > 0 ? (
+            <div className="space-y-2">
+              {formData.images.map((image: string, index: number) => (
+                <div key={index} className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    value={image}
+                    onChange={(e) => {
+                      const newImages = [...(formData.images || [])]
+                      newImages[index] = e.target.value
+                      setFormData({ ...formData, images: newImages })
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-700 bg-white text-gray-900 text-sm"
+                    placeholder="URL da imagem"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newImages = (formData.images || []).filter((_, i) => i !== index)
+                      setFormData({ ...formData, images: newImages })
+                    }}
+                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded text-sm transition disabled:opacity-50"
+                    disabled={loading}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 italic">Nenhuma imagem adicionada</p>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              const newImages = [...(formData.images || [])]
+              newImages.push('')
+              setFormData({ ...formData, images: newImages })
+            }}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm transition font-medium disabled:opacity-50"
+            disabled={loading}
+          >
+            + Adicionar Imagem
+          </button>
+        </div>
       </div>
 
       {/* Checkboxes */}

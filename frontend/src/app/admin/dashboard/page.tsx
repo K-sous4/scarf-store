@@ -6,11 +6,14 @@ import { useAuth } from '@/lib/use-auth'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { ProductStockList } from '@/components/ProductStockList'
 import { CreateProductForm } from '@/components/CreateProductForm'
+import CategoriesManager from '@/components/CategoriesManager'
+import ColorsManager from '@/components/ColorsManager'
+import MaterialsManager from '@/components/MaterialsManager'
 
 function AdminDashboardContent() {
   const router = useRouter()
   const { user, logout } = useAuth()
-  const [activeTab, setActiveTab] = useState<'estoque' | 'criar'>('estoque')
+  const [activeTab, setActiveTab] = useState<'estoque' | 'criar' | 'categorias' | 'cores' | 'materiais'>('estoque')
 
   const handleLogout = async () => {
     await logout()
@@ -45,7 +48,7 @@ function AdminDashboardContent() {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Tabs */}
-        <div className="flex gap-4 mb-8 border-b border-gray-200">
+        <div className="flex gap-4 mb-8 border-b border-gray-200 flex-wrap">
           <button
             onClick={() => setActiveTab('estoque')}
             className={`px-6 py-3 font-semibold transition duration-200 ${
@@ -66,12 +69,45 @@ function AdminDashboardContent() {
           >
             ➕ Criar Produto
           </button>
+          <button
+            onClick={() => setActiveTab('categorias')}
+            className={`px-6 py-3 font-semibold transition duration-200 ${
+              activeTab === 'categorias'
+                ? 'border-b-2 border-amber-700 text-amber-700'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            🏷️ Categorias
+          </button>
+          <button
+            onClick={() => setActiveTab('cores')}
+            className={`px-6 py-3 font-semibold transition duration-200 ${
+              activeTab === 'cores'
+                ? 'border-b-2 border-amber-700 text-amber-700'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            🎨 Cores
+          </button>
+          <button
+            onClick={() => setActiveTab('materiais')}
+            className={`px-6 py-3 font-semibold transition duration-200 ${
+              activeTab === 'materiais'
+                ? 'border-b-2 border-amber-700 text-amber-700'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            🧵 Materiais
+          </button>
         </div>
 
         {/* Content */}
         <div>
           {activeTab === 'estoque' && <StockManagementSection />}
           {activeTab === 'criar' && <CreateProductSection />}
+          {activeTab === 'categorias' && <CategoriesSection />}
+          {activeTab === 'cores' && <ColorsSection />}
+          {activeTab === 'materiais' && <MaterialsSection />}
         </div>
       </div>
     </div>
@@ -95,6 +131,36 @@ function CreateProductSection() {
       <div className="bg-white rounded-lg shadow p-8 w-full max-w-2xl">
         <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Criar Novo Produto</h2>
         <CreateProductForm />
+      </div>
+    </div>
+  )
+}
+
+function CategoriesSection() {
+  return (
+    <div>
+      <div className="bg-white rounded-lg shadow p-6">
+        <CategoriesManager />
+      </div>
+    </div>
+  )
+}
+
+function ColorsSection() {
+  return (
+    <div>
+      <div className="bg-white rounded-lg shadow p-6">
+        <ColorsManager />
+      </div>
+    </div>
+  )
+}
+
+function MaterialsSection() {
+  return (
+    <div>
+      <div className="bg-white rounded-lg shadow p-6">
+        <MaterialsManager />
       </div>
     </div>
   )
