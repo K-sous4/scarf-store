@@ -1,36 +1,256 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Scarf Store - Frontend
 
-## Getting Started
+Uma aplicação Next.js 16 moderna para gerenciar e visualizar uma loja de lenços premium.
 
-First, run the development server:
+## 🎯 Características
+
+- ✅ **App Router Next.js 13+** - Estrutura moderna e escalável
+- ✅ **TypeScript** - Type-safety total
+- ✅ **Tailwind CSS v4** - Estilização rápida e responsiva
+- ✅ **Autenticação JWT** - Com persistência de sessão
+- ✅ **React 19** - Latest version
+- ✅ **ESLint** - Code quality
+- ✅ **Error Boundary** - Tratamento de erros robusto
+
+## 📋 Pré-requisitos
+
+- **Node.js** 18.17+ ou **npm** 9+
+- **Backend em execução** (veja `.env` para configurar URL)
+
+## 🚀 Quick Start
+
+### 1. Instalação
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Instalar dependências
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configurar Variáveis de Ambiente
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Verificar `.env` na raiz com:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
 
-## Learn More
+### 3. Development
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Iniciar servidor de desenvolvimento
+npm run dev
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Abrir em http://localhost:3000
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+O servidor reinicia automaticamente ao editar arquivos.
 
-## Deploy on Vercel
+### 4. Build para Produção
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+# Build otimizado
+npm run build
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Executar em produção
+npm start
+```
+
+## 📁 Estrutura do Projeto
+
+```
+frontend/
+├── src/
+│   ├── app/                    # App Router (Next.js routing)
+│   │   ├── layout.tsx          # Root layout com ErrorBoundary
+│   │   ├── page.tsx            # Página de login (default)
+│   │   ├── globals.css         # Estilos globais
+│   │   ├── admin/dashboard/    # Dashboard admin (protegido)
+│   │   ├── home/               # Página inicial autenticada
+│   │   ├── login/              # Página de login alternativa
+│   │   └── api/                # Configurações de API
+│   ├── components/             # Componentes reutilizáveis
+│   │   ├── Header.tsx          # Navegação principal
+│   │   ├── Footer.tsx          # Rodapé
+│   │   ├── ProductCard.tsx     # Card de produto
+│   │   ├── ProductGrid.tsx     # Grid de produtos
+│   │   ├── ErrorBoundary.tsx   # Error boundary
+│   │   ├── LoadingSkeletons.tsx # Componentes de loading
+│   │   └── index.ts            # Barrel exports
+│   ├── lib/                    # Utilitários e hooks
+│   │   ├── api-client.ts       # Cliente HTTP centralizado
+│   │   ├── use-auth.ts         # Hook de autenticação
+│   │   └── hooks.ts            # Custom hooks adicionais
+│   ├── types/                  # Type definitions
+│   │   └── index.ts            # Tipos compartilhados
+│   └── config/                 # Configurações
+│       └── index.ts            # Config centralizada
+├── public/                     # Arquivos estáticos
+├── package.json
+├── tsconfig.json
+├── next.config.js              # Configuração Next.js
+├── tailwind.config.ts          # Configuração Tailwind
+├── eslint.config.mjs           # Configuração ESLint
+└── README.md
+```
+
+## 🔐 Autenticação
+
+O projeto usa autenticação baseada em **tokens JWT** com cookies.
+
+### Login
+
+```tsx
+import { useAuth } from '@/lib/use-auth'
+
+export default function LoginForm() {
+  const { login, error, isLoading } = useAuth()
+  
+  const handleSubmit = async (username: string, password: string) => {
+    const result = await login({ username, password })
+    if (result.success) {
+      router.push('/home') // Redirecionar para dashboard
+    }
+  }
+}
+```
+
+### Verificar Autenticação
+
+```tsx
+import { useAuth } from '@/lib/use-auth'
+
+export default function ProtectedComponent() {
+  const { isAuthenticated, user, isLoading } = useAuth()
+  
+  if (isLoading) return <div>Carregando...</div>
+  
+  if (!isAuthenticated) return <div>Acesso negado</div>
+  
+  return <Dashboard user={user} />
+}
+```
+
+### Logout
+
+```tsx
+const { logout } = useAuth()
+
+const handleLogout = async () => {
+  await logout()
+  router.push('/')
+}
+```
+
+## 🌐 Variáveis de Ambiente
+
+As variáveis são definidas em `.env` na raiz do projeto:
+
+```env
+# API Configuration
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_TIMEOUT=30000
+NEXT_PUBLIC_API_RETRIES=3
+```
+
+**Nota:** Variáveis com prefixo `NEXT_PUBLIC_` são expostas ao frontend.
+
+## 📦 Dependências Principais
+
+| Pacote | Versão | Propósito |
+|--------|--------|-----------|
+| next | 16.1.6 | Framework principal |
+| react | 19.2.3 | Biblioteca UI |
+| typescript | ^5 | Type safety |
+| tailwindcss | ^4 | Estilização |
+| eslint | ^9 | Code linting |
+
+## 🧪 Linting & Code Quality
+
+```bash
+# Executar ESLint
+npm run lint
+```
+
+Usa config Next.js automática com TypeScript.
+
+## ⚙️ Scripts Disponíveis
+
+```bash
+npm run dev        # Iniciar dev server
+npm run build      # Build otimizado
+npm start          # Executar build
+npm run lint       # Executar ESLint
+```
+
+## 📊 Performance & Otimizações
+
+- ✅ **React Strict Mode** ativado (detecção de bugs)
+- ✅ **Image Optimization** com Next.js Image
+- ✅ **Code Splitting** automático por rota
+- ✅ **CSS Purging** com Tailwind
+- ✅ **Console Removal** em produção
+
+## 🛡️ Segurança
+
+- ✅ CSRF protection via tokens
+- ✅ Session management com cookies
+- ✅ Type-safe API calls com TypeScript
+- ✅ Error boundaries para evitar crashes
+- ✅ Validação de dados com Zod
+
+## 🐛 Troubleshooting
+
+### "API não conecta"
+
+```bash
+# 1. Verificar se backend está rodando
+curl http://localhost:8000/health
+
+# 2. Verificar variável de ambiente
+echo $NEXT_PUBLIC_API_URL  # Deve ser http://localhost:8000
+
+# 3. Verificar .env
+cat .env
+```
+
+### "Session expirou ou erro de autenticação"
+
+```bash
+# Limpar armazenamento local:
+# 1. Dev Tools > Application > Storage > Clear All
+# 2. Fazer login novamente
+```
+
+### "Erro de build"
+
+```bash
+# Limpar cache e reconstruir
+rm -rf .next
+npm run build
+```
+
+## 📚 Recursos Úteis
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [React 19 Guide](https://react.dev)
+- [TypeScript Handbook](https://www.typescriptlang.org)
+- [Tailwind CSS Docs](https://tailwindcss.com)
+
+## 🤝 Contributing
+
+1. Criar branch: `git checkout -b feature/descricao`
+2. Commit: `git commit -m "feat: descrição"`
+3. Push: `git push origin feature/descricao`
+4. Abrir Pull Request
+
+## 📝 Convenções de Código
+
+- **Components**: PascalCase (`ProductCard.tsx`)
+- **Hooks/Functions**: camelCase (`useAuth.ts`)
+- **Type Safety**: Sempre usar TypeScript (sem `any`)
+- **Path Aliases**: Use `@/` (ex: `@/components/Button`)
+- **Documentation**: JSDoc para componentes complexos
+
+## 📄 Licença
+
+Proprietary - Scarf Store © 2026

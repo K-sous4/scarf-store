@@ -2,13 +2,31 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { useAuth } from '@/lib/use-auth'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
-import { ProductStockList } from '@/components/ProductStockList'
-import { CreateProductForm } from '@/components/CreateProductForm'
-import CategoriesManager from '@/components/CategoriesManager'
-import ColorsManager from '@/components/ColorsManager'
-import MaterialsManager from '@/components/MaterialsManager'
+import { LoadingFallback, ErrorFallback } from '@/utils/dynamic-imports'
+
+// Dynamically import heavy admin components
+const ProductStockList = dynamic(() => import('@/components/ProductStockList').then(mod => ({ default: mod.ProductStockList })), {
+  loading: () => <LoadingFallback message="Carregando estoque..." />,
+})
+
+const CreateProductForm = dynamic(() => import('@/components/CreateProductForm').then(mod => ({ default: mod.CreateProductForm })), {
+  loading: () => <LoadingFallback message="Carregando formulário..." />,
+})
+
+const CategoriesManager = dynamic(() => import('@/components/CategoriesManager'), {
+  loading: () => <LoadingFallback message="Carregando gerenciador de categorias..." />,
+})
+
+const ColorsManager = dynamic(() => import('@/components/ColorsManager'), {
+  loading: () => <LoadingFallback message="Carregando gerenciador de cores..." />,
+})
+
+const MaterialsManager = dynamic(() => import('@/components/MaterialsManager'), {
+  loading: () => <LoadingFallback message="Carregando gerenciador de materiais..." />,
+})
 
 function AdminDashboardContent() {
   const router = useRouter()

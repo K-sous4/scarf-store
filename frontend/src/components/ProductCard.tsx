@@ -1,13 +1,13 @@
 'use client'
 
-import Image from 'next/image'
+import OptimizedImage, { imageSizes } from './OptimizedImage'
 import type { Product } from '@/types'
 
 /**
  * ProductCard
  * 
  * Renders a single product card with:
- * - Product image
+ * - Optimized product image (with blur placeholder)
  * - Price with and without discount
  * - Discount and featured badges
  * - Stock status
@@ -16,9 +16,11 @@ import type { Product } from '@/types'
 
 interface ProductCardProps {
   product: Product
+  /** Set priority for above-the-fold images */
+  priority?: boolean
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, priority = false }: ProductCardProps) {
   const finalPrice = product.discount_price || product.price
 
   return (
@@ -26,10 +28,13 @@ export default function ProductCard({ product }: ProductCardProps) {
       {/* Product Image */}
       <div className="bg-gray-100 h-56 flex items-center justify-center overflow-hidden relative">
         {product.images && product.images[0] ? (
-          <Image
+          <OptimizedImage
             src={product.images[0]}
             alt={product.name}
             fill
+            priority={priority}
+            sizes={imageSizes.product}
+            quality={80}
             className="object-cover"
           />
         ) : (

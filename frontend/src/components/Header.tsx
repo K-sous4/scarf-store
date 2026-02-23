@@ -1,8 +1,8 @@
 'use client'
 
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/use-auth'
+import { PrefetchLink } from './PrefetchLink'
 
 /**
  * MainNavigation
@@ -26,10 +26,10 @@ export default function MainNavigation() {
   return (
     <header className="bg-amber-700 shadow-lg">
       <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-        <Link href="/home" className="flex items-center gap-2 hover:opacity-80 transition">
+        <PrefetchLink href="/home" className="flex items-center gap-2 hover:opacity-80 transition">
           <div className="text-3xl font-bold text-white">🧣</div>
           <h1 className="text-2xl font-bold text-white">Scarf Store</h1>
-        </Link>
+        </PrefetchLink>
         <nav className="flex gap-6 items-center">
           <a href="#" className="text-amber-100 hover:text-white transition">
             Início
@@ -46,12 +46,13 @@ export default function MainNavigation() {
 
           {/* Admin Panel Link */}
           {isAuthenticated && user?.role === 'admin' && (
-            <Link
+            <PrefetchLink
               href="/admin/dashboard"
+              prefetchStrategy="immediate"
               className="bg-amber-800 hover:bg-amber-900 text-white px-4 py-2 rounded-lg transition text-sm font-medium"
             >
               📊 Gestão
-            </Link>
+            </PrefetchLink>
           )}
 
           {/* Logout Button */}
