@@ -14,7 +14,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -37,7 +37,7 @@ htmlcov/
 .nox/
 .coverage
 .coverage.*
-.cache
+.cache/
 nosetests.xml
 coverage.xml
 *.cover
@@ -134,3 +134,8 @@ poetry.lock
 
 # Docker
 .dockerignore
+
+# Important files to track
+# Allow frontend lib folder and all its files
+!frontend/src/lib/
+!frontend/src/lib/**
