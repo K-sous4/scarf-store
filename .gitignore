@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Keep frontend lib files
+!frontend/src/lib/
+!frontend/src/lib/**
+
 # C extensions
 *.so
 
@@ -134,8 +138,3 @@ poetry.lock
 
 # Docker
 .dockerignore
-
-# Important files to track
-# Allow frontend lib folder and all its files
-!frontend/src/lib/
-!frontend/src/lib/**
