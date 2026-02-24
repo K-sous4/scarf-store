@@ -98,12 +98,58 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Footer */}
-        <div className="mt-6 pt-6 border-t border-gray-200 text-center text-sm text-gray-600">
-          <p>Credenciais de teste:</p>
-          <p className="text-xs mt-2 text-gray-500">
-            admin / admin123
-          </p>
+        {/* Test Credentials */}
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <p className="text-center text-sm font-semibold text-gray-700 mb-3">📋 Credenciais de Teste</p>
+          
+          {/* Username */}
+          <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-xs text-gray-500 mb-1">Usuário:</p>
+            <div className="flex items-center justify-between gap-2">
+              <code className="text-sm font-mono bg-white px-2 py-1 rounded border border-amber-200 flex-1">
+                testuser
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText('testuser')
+                  alert('✓ Usuário copiado!')
+                }}
+                className="px-2 py-1 text-xs bg-amber-200 hover:bg-amber-300 rounded text-amber-900 font-medium transition"
+              >
+                Copiar
+              </button>
+            </div>
+          </div>
+
+          {/* Password */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-xs text-gray-500 mb-1">Senha:</p>
+            <div className="flex items-center justify-between gap-2">
+              <code className="text-sm font-mono bg-white px-2 py-1 rounded border border-amber-200 flex-1">
+                securePassword123
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText('securePassword123')
+                  alert('✓ Senha copiada!')
+                }}
+                className="px-2 py-1 text-xs bg-amber-200 hover:bg-amber-300 rounded text-amber-900 font-medium transition"
+              >
+                Copiar
+              </button>
+            </div>
+          </div>
+
+          {/* Auto-fill button */}
+          <button
+            onClick={() => {
+              setUsername('testuser')
+              setPassword('securePassword123')
+            }}
+            className="w-full mt-3 px-3 py-2 text-xs bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded text-blue-700 font-medium transition"
+          >
+            🚀 Auto-preencher
+          </button>
         </div>
       </div>
     </div>
