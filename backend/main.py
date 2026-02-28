@@ -10,11 +10,11 @@ from contextlib import asynccontextmanager
 load_dotenv()
 
 # Import models BEFORE creating tables
-from models import user, product, category, color, material
-from api.v1.public import auth, products
-from api.v1.private import users, admin, parameters
+from models import user, product, category, color, material, audit_log
+from api.v1.routes import auth, products, categories, colors, materials, users
 from database.db import create_tables
 from middlewares.session_refresh import SessionRefreshMiddleware
+from middlewares.logging import AuditLoggingMiddleware
 
 
 # Define environment modes
@@ -81,7 +81,8 @@ else:
     allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",")]
 
 # Add middlewares in the correct order (added REVERSE - last added is executed first)
-# Order of execution: SessionRefresh -> CORS
+# Order of execution: AuditLogging -> SessionRefresh -> CORS
+app.add_middleware(AuditLoggingMiddleware)  # Audit logging (outermost)
 app.add_middleware(SessionRefreshMiddleware)  # Refreshes session cookies
 
 app.add_middleware(
@@ -92,14 +93,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include public routes
+# Include routes
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(products.router, prefix="/api/v1")
-
-# Include private routes (protected)
+app.include_router(categories.router, prefix="/api/v1")
+app.include_router(colors.router, prefix="/api/v1")
+app.include_router(materials.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
-app.include_router(admin.router, prefix="/api/v1")
-app.include_router(parameters.router, prefix="/api/v1")
 
 
 @app.get("/ping")

@@ -6,8 +6,11 @@ from utils.security import hash_password, verify_password
 from utils.cookies import set_session_cookie, refresh_session_cookie, COOKIE_NAME
 from database.db import get_db
 from services.session import session_manager
+from services.logging_service import LoggingService
+import logging
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 class SignUpRequest(BaseModel):
@@ -22,7 +25,7 @@ class LoginRequest(BaseModel):
 
 
 class AuthResponse(BaseModel):
-    user: 'ProfileResponse'
+    user: "ProfileResponse"
 
 
 class LogoutResponse(BaseModel):
@@ -35,21 +38,18 @@ class ProfileResponse(BaseModel):
     role: str
 
 
-@router.post("/sign-in", response_model=AuthResponse)
+@router.post("/sign-in", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def sign_in(request: SignUpRequest, response: Response, db: Session = Depends(get_db)):
     """
-    Register a new user and create a secure session cookie
+    Registra um novo usuário e inicia uma sessão
     """
-    # Check if user already exists
     existing_user = db.query(User).filter(User.username == request.username).first()
     if existing_user:
-        # Generic error message to prevent username enumeration
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Registration failed"
         )
-    
-    # Create new user
+
     hashed_password = hash_password(request.password)
     new_user = User(
         username=request.username,
@@ -57,21 +57,18 @@ async def sign_in(request: SignUpRequest, response: Response, db: Session = Depe
         hashed_password=hashed_password,
         role="user"
     )
-    
+
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    
-    # Create session
+
     session_id = session_manager.create_session(
         user_id=new_user.id,
         username=new_user.username,
         role=new_user.role
     )
-    
-    # Set secure session cookie
     set_session_cookie(response, session_id)
-    
+
     return {
         "user": {
             "id": new_user.id,
@@ -82,30 +79,44 @@ async def sign_in(request: SignUpRequest, response: Response, db: Session = Depe
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(request: LoginRequest, response: Response, db: Session = Depends(get_db)):
+async def login(request: LoginRequest, response: Response, http_request: Request, db: Session = Depends(get_db)):
     """
-    Authenticate user and create a secure session cookie
+    Autentica o usuário e inicia uma sessão via cookie seguro
     """
-    # Find user
+    ip_address = http_request.client.host if http_request.client else None
+    user_agent = http_request.headers.get("user-agent", "")
+
     user = db.query(User).filter(User.username == request.username).first()
-    
+
     if not user or not verify_password(request.password, user.hashed_password):
-        # Generic error message to prevent username enumeration
+        LoggingService.log_auth_failure(
+            db=db,
+            username=request.username,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            error_message="Invalid credentials"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication failed"
         )
-    
-    # Create session
+
     session_id = session_manager.create_session(
         user_id=user.id,
         username=user.username,
         role=user.role
     )
-    
-    # Set secure session cookie
     set_session_cookie(response, session_id)
-    
+
+    LoggingService.log_auth_success(
+        db=db,
+        user_id=user.id,
+        username=user.username,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+    logger.info(f"✓ User '{user.username}' (ID: {user.id}) logged in from {ip_address}")
+
     return {
         "user": {
             "id": user.id,
@@ -118,77 +129,34 @@ async def login(request: LoginRequest, response: Response, db: Session = Depends
 @router.post("/logout", response_model=LogoutResponse)
 async def logout(http_request: Request, response: Response):
     """
-    Invalidate session and clear session cookie
+    Invalida a sessão e limpa o cookie
     """
     session_id = http_request.cookies.get(COOKIE_NAME)
-    
     if session_id:
-        # Invalidate session
         session_manager.invalidate_session(session_id)
-    
-    # Clear session cookie
-    response.delete_cookie(
-        key=COOKIE_NAME,
-        path="/",
-        domain=None
-    )
-    
+
+    response.delete_cookie(key=COOKIE_NAME, path="/", domain=None)
     return {"message": "Logout successful"}
 
 
 @router.get("/profile", response_model=ProfileResponse)
 async def get_profile(http_request: Request, response: Response, db: Session = Depends(get_db)):
     """
-    Get authenticated user's profile using session cookie.
-    Returns minimal user information to prevent data leakage.
-    Refreshes session cookie on each request.
+    Retorna os dados do usuário autenticado e renova a sessão
     """
     session_id = http_request.cookies.get(COOKIE_NAME)
-    
     if not session_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
-    
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
     session_data = session_manager.get_session(session_id)
-    
     if not session_data:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session expired or invalid"
-        )
-    
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired or invalid")
+
     user = db.query(User).filter(User.id == session_data["user_id"]).first()
-    
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    # Refresh session TTL on Redis
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
     session_manager.refresh_session(session_id)
-    
-    # Refresh session cookie (extends expiration on browser)
     refresh_session_cookie(response, session_id)
-    
-    return {
-        "id": user.id,
-        "username": user.username,
-        "role": user.role
-    }
 
-
-@router.get("/debug")
-async def debug_cookies(http_request: Request):
-    """
-    Debug endpoint to see what cookies the server is receiving
-    """
-    return {
-        "cookies_received": dict(http_request.cookies),
-        "origin": http_request.headers.get("origin"),
-        "referer": http_request.headers.get("referer"),
-    }
-
-
+    return {"id": user.id, "username": user.username, "role": user.role}

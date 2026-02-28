@@ -1,31 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f9f5f1;
+  --background: #ffffff;
   --foreground: #171717;
-  
-  /* Font fallbacks (used if next/font fails) */
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  --font-mono: 'SFMono-Regular', 'Consolas', 'Liberation Mono', 'Menlo',
-    monospace;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-}
-
-* {
-  font-family: var(--font-sans, system-ui, sans-serif);
-}
-
-code,
-pre,
-kbd,
-samp {
-  font-family: var(--font-mono, monospace);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -35,33 +19,8 @@ samp {
   }
 }
 
-/* Optimize font rendering */
-html {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Font size responsive scaling */
-@media (max-width: 640px) {
-  html {
-    font-size: 14px;
-  }
-}
-
-@media (max-width: 1024px) {
-  html {
-    font-size: 15px;
-  }
-}
-
-@media (min-width: 1024px) {
-  html {
-    font-size: 16px;
-  }
-}
-
 body {
-  background: #f9f5f1 !important;
+  background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }

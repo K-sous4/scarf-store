@@ -21,7 +21,7 @@ def set_session_cookie(response: Response, session_id: str) -> None:
         domain=None,
         secure=False,  # Set to True in production (requires HTTPS)
         httponly=True,  # Prevent JavaScript access
-        samesite="lax"  # Allow cookies to be sent with cross-origin requests (CSRF protection still applies)
+        samesite="lax"  # Allow cookies to be sent with cross-origin requests
     )
 
 
