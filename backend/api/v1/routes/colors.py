@@ -5,9 +5,12 @@ from models.color import Color
 from schemas.color import ColorCreate, ColorUpdate, ColorResponse
 from database.db import get_db
 from api.v1.dependencies import get_current_admin
+from services.cache import cache
 from typing import List
 
 router = APIRouter(prefix="/colors", tags=["colors"])
+
+_CACHE_PREFIX = "filter:colors"
 
 
 # ============= PUBLIC =============
@@ -19,9 +22,18 @@ async def list_colors(
     db: Session = Depends(get_db)
 ):
     """
-    Lista todas as cores (público)
+    Lista todas as cores (público) — cache-aside (TTL 5 min)
     """
-    return db.query(Color).offset(skip).limit(limit).all()
+    cache_key = f"{_CACHE_PREFIX}:{skip}:{limit}"
+
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    rows = db.query(Color).offset(skip).limit(limit).all()
+    result = [ColorResponse.model_validate(r).model_dump() for r in rows]
+    cache.set(cache_key, result)
+    return result
 
 
 @router.get("/{color_id}", response_model=ColorResponse)
@@ -54,6 +66,7 @@ async def create_color(
     db.add(db_color)
     db.commit()
     db.refresh(db_color)
+    cache.invalidate_pattern(f"{_CACHE_PREFIX}:*")
     return db_color
 
 
@@ -84,6 +97,7 @@ async def update_color(
 
     db.commit()
     db.refresh(db_color)
+    cache.invalidate_pattern(f"{_CACHE_PREFIX}:*")
     return db_color
 
 
@@ -102,3 +116,4 @@ async def delete_color(
 
     db.delete(db_color)
     db.commit()
+    cache.invalidate_pattern(f"{_CACHE_PREFIX}:*")

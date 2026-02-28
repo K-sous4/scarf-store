@@ -5,9 +5,12 @@ from models.material import Material
 from schemas.material import MaterialCreate, MaterialUpdate, MaterialResponse
 from database.db import get_db
 from api.v1.dependencies import get_current_admin
+from services.cache import cache
 from typing import List
 
 router = APIRouter(prefix="/materials", tags=["materials"])
+
+_CACHE_PREFIX = "filter:materials"
 
 
 # ============= PUBLIC =============
@@ -19,9 +22,18 @@ async def list_materials(
     db: Session = Depends(get_db)
 ):
     """
-    Lista todos os materiais ativos (público)
+    Lista todos os materiais ativos (público) — cache-aside (TTL 5 min)
     """
-    return db.query(Material).filter(Material.is_active == True).offset(skip).limit(limit).all()
+    cache_key = f"{_CACHE_PREFIX}:{skip}:{limit}"
+
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    rows = db.query(Material).filter(Material.is_active == True).offset(skip).limit(limit).all()
+    result = [MaterialResponse.model_validate(r).model_dump() for r in rows]
+    cache.set(cache_key, result)
+    return result
 
 
 @router.get("/{material_id}", response_model=MaterialResponse)
@@ -54,6 +66,7 @@ async def create_material(
     db.add(db_material)
     db.commit()
     db.refresh(db_material)
+    cache.invalidate_pattern(f"{_CACHE_PREFIX}:*")
     return db_material
 
 
@@ -84,6 +97,7 @@ async def update_material(
 
     db.commit()
     db.refresh(db_material)
+    cache.invalidate_pattern(f"{_CACHE_PREFIX}:*")
     return db_material
 
 
@@ -102,3 +116,4 @@ async def delete_material(
 
     db.delete(db_material)
     db.commit()
+    cache.invalidate_pattern(f"{_CACHE_PREFIX}:*")

@@ -5,9 +5,12 @@ from models.category import Category
 from schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
 from database.db import get_db
 from api.v1.dependencies import get_current_admin
+from services.cache import cache
 from typing import List
 
 router = APIRouter(prefix="/categories", tags=["categories"])
+
+_CACHE_PREFIX = "filter:categories"
 
 
 # ============= PUBLIC =============
@@ -19,9 +22,18 @@ async def list_categories(
     db: Session = Depends(get_db)
 ):
     """
-    Lista todas as categorias ativas (público)
+    Lista todas as categorias ativas (público) — cache-aside (TTL 5 min)
     """
-    return db.query(Category).filter(Category.is_active == True).offset(skip).limit(limit).all()
+    cache_key = f"{_CACHE_PREFIX}:{skip}:{limit}"
+
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    rows = db.query(Category).filter(Category.is_active == True).offset(skip).limit(limit).all()
+    result = [CategoryResponse.model_validate(r).model_dump() for r in rows]
+    cache.set(cache_key, result)
+    return result
 
 
 @router.get("/{category_id}", response_model=CategoryResponse)
@@ -54,6 +66,7 @@ async def create_category(
     db.add(db_category)
     db.commit()
     db.refresh(db_category)
+    cache.invalidate_pattern(f"{_CACHE_PREFIX}:*")
     return db_category
 
 
@@ -84,6 +97,7 @@ async def update_category(
 
     db.commit()
     db.refresh(db_category)
+    cache.invalidate_pattern(f"{_CACHE_PREFIX}:*")
     return db_category
 
 
@@ -102,3 +116,4 @@ async def delete_category(
 
     db.delete(db_category)
     db.commit()
+    cache.invalidate_pattern(f"{_CACHE_PREFIX}:*")

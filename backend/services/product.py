@@ -249,8 +249,11 @@ class ProductService:
                 raise ValueError("Quantidade disponível insuficiente")
             product.stock -= quantity
             product.available_stock -= quantity
+        elif operation == 'set':
+            product.stock = quantity
+            product.available_stock = max(0, quantity - product.reserved_stock)
         else:
-            raise ValueError("Operação deve ser 'add' ou 'remove'")
+            raise ValueError("Operação deve ser 'add', 'remove' ou 'set'")
         
         db.commit()
         db.refresh(product)

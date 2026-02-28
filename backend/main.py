@@ -12,7 +12,9 @@ load_dotenv()
 # Import models BEFORE creating tables
 from models import user, product, category, color, material, audit_log
 from api.v1.routes import auth, products, categories, colors, materials, users
-from database.db import create_tables
+from database.db import create_tables, SessionLocal
+from database.seed import seed_admin
+from database.mockup import seed_mockup
 from middlewares.session_refresh import SessionRefreshMiddleware
 from middlewares.logging import AuditLoggingMiddleware
 
@@ -46,6 +48,15 @@ async def lifespan(app: FastAPI):
         logging.info("✓ Tables created successfully!")
     except Exception as e:
         logging.error(f"✗ Error creating tables: {e}")
+
+    try:
+        db = SessionLocal()
+        seed_admin(db)
+        if ENVIRONMENT == Environment.DEVELOPMENT:
+            seed_mockup(db)
+        db.close()
+    except Exception as e:
+        logging.error(f"✗ Error seeding: {e}")
     
     yield
     

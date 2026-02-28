@@ -19,7 +19,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://scarf_user:scarf_password
 
 # Server
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
-API_PORT = int(os.getenv("API_PORT", 3000))
+API_PORT = int(os.getenv("API_PORT", 8000))
 
 # JWT
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")

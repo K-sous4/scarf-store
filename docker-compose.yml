@@ -1,15 +1,16 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: scarf_store_db
+    container_name: scarf_db
+    restart: unless-stopped
     environment:
       POSTGRES_USER: scarf_user
       POSTGRES_PASSWORD: scarf_password
       POSTGRES_DB: scarf_store_db
     ports:
       - "5432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
     networks:
       - scarf_network
     healthcheck:
@@ -20,7 +21,8 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: scarf_store_cache
+    container_name: scarf_cache
+    restart: unless-stopped
     ports:
       - "6379:6379"
     command: redis-server --appendonly no
@@ -31,6 +33,46 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: scarf_backend
+    restart: unless-stopped
+    profiles: ["app"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://scarf_user:scarf_password@postgres:5432/scarf_store_db
+      REDIS_URL: redis://redis:6379/0
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - scarf_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: scarf_frontend
+    restart: unless-stopped
+    profiles: ["app"]
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - scarf_network
 
 networks:
   scarf_network:

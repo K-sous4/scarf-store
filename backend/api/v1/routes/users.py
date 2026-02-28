@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 from models.user import User
 from database.db import get_db
 from api.v1.dependencies import get_current_user, get_current_admin
+from utils.security import hash_password
 from pydantic import BaseModel, EmailStr
+from typing import Literal
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -21,6 +23,20 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AdminCreateUserRequest(BaseModel):
+    username: str
+    password: str
+    email: EmailStr | None = None
+    role: Literal["user", "admin"] = "user"
+
+
+class AdminUpdateUserRequest(BaseModel):
+    username: str | None = None
+    email: EmailStr | None = None
+    password: str | None = None
+    role: Literal["user", "admin"] | None = None
 
 
 # ============= AUTHENTICATED USER =============
@@ -91,6 +107,32 @@ async def list_users(
     }
 
 
+@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    request: AdminCreateUserRequest,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Cria um novo usuário (admin)
+    """
+    if db.query(User).filter(User.username == request.username).first():
+        raise HTTPException(status_code=400, detail="Username já está em uso")
+    if request.email and db.query(User).filter(User.email == request.email).first():
+        raise HTTPException(status_code=400, detail="Email já está em uso")
+
+    user = User(
+        username=request.username,
+        email=request.email,
+        hashed_password=hash_password(request.password),
+        role=request.role,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: int,
@@ -104,3 +146,56 @@ async def get_user(
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     return user
+
+
+@router.put("/{user_id}", response_model=UserResponse)
+async def update_user(
+    user_id: int,
+    request: AdminUpdateUserRequest,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Atualiza um usuário (admin)
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    if request.username and request.username != user.username:
+        if db.query(User).filter(User.username == request.username).first():
+            raise HTTPException(status_code=400, detail="Username já está em uso")
+        user.username = request.username
+
+    if request.email and request.email != user.email:
+        if db.query(User).filter(User.email == request.email).first():
+            raise HTTPException(status_code=400, detail="Email já está em uso")
+        user.email = request.email
+
+    if request.password:
+        user.hashed_password = hash_password(request.password)
+
+    if request.role:
+        user.role = request.role
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    user_id: int,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Deleta um usuário (admin). Não é possível deletar admins.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    if user.role == "admin":
+        raise HTTPException(status_code=400, detail="Não é possível deletar um administrador")
+    db.delete(user)
+    db.commit()

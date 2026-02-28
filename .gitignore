@@ -138,3 +138,6 @@ poetry.lock
 
 # Docker
 .dockerignore
+
+# Dev logs
+.dev-logs/
