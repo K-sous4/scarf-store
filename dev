@@ -36,6 +36,8 @@ cleanup() {
   for pid in "${PIDS[@]:-}"; do
     kill "$pid" 2>/dev/null || true
   done
+  info "Stopping containers (reset)..."
+  docker compose -f "$ROOT/docker-compose.yml" down -v --remove-orphans >/dev/null 2>&1 || true
   success "All dev processes stopped."
   exit 0
 }
@@ -72,11 +74,15 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
-# ── 1. start infra ──────────────────────────────────────────────────────────
+# ── 1. reset infra ──────────────────────────────────────────────────────────
+info "Resetting database and cache..."
+docker compose -f "$ROOT/docker-compose.yml" down -v --remove-orphans >/dev/null 2>&1 || true
+
+# ── 2. start infra ──────────────────────────────────────────────────────────
 info "Starting database and cache..."
 docker compose -f "$ROOT/docker-compose.yml" up -d postgres redis
 
-# ── 2. wait for postgres ────────────────────────────────────────────────────
+# ── 3. wait for postgres ────────────────────────────────────────────────────
 info "Waiting for postgres to be ready..."
 MAX_WAIT=30; elapsed=0
 until docker compose -f "$ROOT/docker-compose.yml" exec -T postgres \
@@ -90,7 +96,7 @@ until docker compose -f "$ROOT/docker-compose.yml" exec -T postgres \
 done
 success "Postgres ready."
 
-# ── 3. start backend ────────────────────────────────────────────────────────
+# ── 4. start backend ────────────────────────────────────────────────────────
 info "Starting backend (uvicorn --reload)..."
 source "$VENV/bin/activate"
 cd "$BACKEND"
@@ -102,7 +108,7 @@ uvicorn main:app \
 PIDS+=($!)
 success "Backend → http://localhost:${API_PORT:-8000}  (logs: .dev-logs/backend.log)"
 
-# ── 4. start frontend ───────────────────────────────────────────────────────
+# ── 5. start frontend ───────────────────────────────────────────────────────
 info "Starting frontend (npm run dev)..."
 cd "$FRONTEND"
 npm run dev \

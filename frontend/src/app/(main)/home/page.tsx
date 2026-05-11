@@ -58,6 +58,14 @@ function pickPrimaryImage(images?: string[] | null) {
   return nonPlaceholder ?? list[0]
 }
 
+function modalImages(product: Product) {
+  const raw = product.images ?? []
+  if (raw.length === 0) {
+    return [`https://placehold.co/1200x900/f4f4f5/71717a?text=${encodeURIComponent(product.name)}`]
+  }
+  return raw.map((url) => resolveImageUrl(url) ?? url)
+}
+
 // ── Cart Drawer ───────────────────────────────────────────────────────────────
 
 function CartDrawer({
@@ -233,14 +241,188 @@ function CartDrawer({
   )
 }
 
+// ── Product Modal ───────────────────────────────────────────────────────────
+
+function ProductModal({
+  product,
+  onClose,
+  onAddToCart,
+}: {
+  product: Product
+  onClose: () => void
+  onAddToCart: (p: Product) => void
+}) {
+  const images = modalImages(product)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const hasDiscount = product.discount_percentage > 0
+  const isOutOfStock = product.available_stock <= 0
+
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [product.id])
+
+  useEffect(() => {
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [])
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <button
+        aria-label="Fechar"
+        onClick={onClose}
+        className="absolute inset-0 h-full w-full cursor-default"
+      />
+      <div
+        className="relative z-10 w-full max-w-5xl max-h-[85vh] overflow-y-auto overscroll-contain rounded-3xl bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-[1.1fr,0.9fr]">
+          <div className="relative bg-zinc-100 max-h-[85vh]">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.85),_rgba(255,255,255,0))]" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={images[Math.min(activeIndex, images.length - 1)]}
+              alt={product.name}
+              className="h-full min-h-[280px] w-full object-cover"
+            />
+            <div className="absolute left-4 top-4 flex items-center gap-2">
+              {product.is_new && (
+                <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[11px] font-semibold text-white uppercase tracking-wide">
+                  Novo
+                </span>
+              )}
+              {hasDiscount && (
+                <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-semibold text-white uppercase tracking-wide">
+                  -{product.discount_percentage}%
+                </span>
+              )}
+            </div>
+            {images.length > 1 && (
+              <div className="absolute bottom-4 left-4 right-4 flex gap-2 overflow-x-auto">
+                {images.map((src, index) => (
+                  <button
+                    key={`${src}-${index}`}
+                    onClick={() => setActiveIndex(index)}
+                    className={`overflow-hidden rounded-xl border bg-white/90 shadow-sm transition ${
+                      index === activeIndex
+                        ? "border-zinc-500"
+                        : "border-zinc-200 hover:border-zinc-300"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="" className="h-14 w-20 object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col gap-6 p-6 lg:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-widest text-zinc-400">
+                  {product.category}
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold text-zinc-900">
+                  {product.name}
+                </h2>
+                {product.short_description && (
+                  <p className="mt-2 text-sm text-zinc-500">
+                    {product.short_description}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={onClose}
+                className="flex size-9 items-center justify-center rounded-full border border-zinc-200 text-zinc-400 transition hover:border-zinc-300 hover:text-zinc-600"
+              >
+                <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex items-baseline gap-3">
+              <span className="text-3xl font-semibold text-zinc-900">
+                {formatPrice(unitPrice(product))}
+              </span>
+              {hasDiscount && (
+                <span className="text-sm text-zinc-400 line-through">
+                  {formatPrice(product.price)}
+                </span>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Material</p>
+                  <p className="mt-1 font-medium text-zinc-900">{product.material ?? "Selecionado"}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Cor</p>
+                  <p className="mt-1 font-medium text-zinc-900">{product.color ?? "Neutro"}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Estoque</p>
+                  <p className="mt-1 font-medium text-zinc-900">
+                    {isOutOfStock ? "Indisponivel" : `${product.available_stock} disponiveis`}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-zinc-400">Entrega</p>
+                  <p className="mt-1 font-medium text-zinc-900">Envio em 24h</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => onAddToCart(product)}
+                disabled={isOutOfStock}
+                className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                  isOutOfStock
+                    ? "bg-zinc-100 text-zinc-400 cursor-not-allowed"
+                    : "bg-zinc-900 text-white hover:bg-zinc-700"
+                }`}
+              >
+                {isOutOfStock ? "Sem estoque" : "Adicionar ao carrinho"}
+              </button>
+              <button
+                onClick={onClose}
+                className="rounded-xl border border-zinc-200 px-4 py-3 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-50"
+              >
+                Continuar comprando
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Product Card ──────────────────────────────────────────────────────────────
 
 function ProductCard({
   product,
   onAddToCart,
+  onOpen,
 }: {
   product: Product
   onAddToCart: (p: Product) => void
+  onOpen: (p: Product) => void
 }) {
   const [added, setAdded] = useState(false)
   const displayPrice = product.discount_price ?? product.price
@@ -252,7 +434,8 @@ function ProductCard({
     resolveImageUrl(pickPrimaryImage(product.images)) ??
     `https://placehold.co/400x300/f4f4f5/71717a?text=${encodeURIComponent(product.name)}`
 
-  function handleAdd() {
+  function handleAdd(event: React.MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation()
     if (isOutOfStock) return
     onAddToCart(product)
     setAdded(true)
@@ -260,7 +443,15 @@ function ProductCard({
   }
 
   return (
-    <div className="group flex-shrink-0 w-56 rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(product)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") onOpen(product)
+      }}
+      className="group flex-shrink-0 w-56 rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col cursor-pointer"
+    >
       <div className="relative h-40 bg-zinc-100 overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -330,10 +521,12 @@ function Carousel({
   title,
   products,
   onAddToCart,
+  onOpen,
 }: {
   title: string
   products: Product[]
   onAddToCart: (p: Product) => void
+  onOpen: (p: Product) => void
 }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [canLeft, setCanLeft] = useState(false)
@@ -391,7 +584,12 @@ function Carousel({
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {products.map((p) => (
-          <ProductCard key={p.id} product={p} onAddToCart={onAddToCart} />
+          <ProductCard
+            key={p.id}
+            product={p}
+            onAddToCart={onAddToCart}
+            onOpen={onOpen}
+          />
         ))}
       </div>
     </section>
@@ -406,24 +604,47 @@ export default function HomePage() {
 
   const [products, setProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(!isAdmin)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Cart
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0)
 
+  const showToast = useCallback((message: string) => {
+    setToast(message)
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
+    toastTimeoutRef.current = setTimeout(() => setToast(null), 2200)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
+    }
+  }, [])
+
   const addToCart = useCallback((product: Product) => {
+    let didAdd = false
     setCartItems((prev) => {
       const existing = prev.find((i) => i.product.id === product.id)
       if (existing) {
         // Cap at available_stock
         if (existing.qty >= product.available_stock) return prev
+        didAdd = true
         return prev.map((i) =>
           i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i
         )
       }
+      didAdd = true
       return [...prev, { product, qty: 1 }]
     })
+    if (didAdd) showToast(`Adicionado ao carrinho: ${product.name}`)
+  }, [showToast])
+
+  const openProduct = useCallback((product: Product) => {
+    setSelectedProduct(product)
   }, [])
 
   const changeQty = useCallback((id: number, delta: number) => {
@@ -554,10 +775,30 @@ export default function HomePage() {
             </div>
           ) : (
             <>
-              {featured.length > 0 && <Carousel title="Destaques" products={featured} onAddToCart={addToCart} />}
-              {newest.length > 0 && <Carousel title="Novidades" products={newest} onAddToCart={addToCart} />}
+              {featured.length > 0 && (
+                <Carousel
+                  title="Destaques"
+                  products={featured}
+                  onAddToCart={addToCart}
+                  onOpen={openProduct}
+                />
+              )}
+              {newest.length > 0 && (
+                <Carousel
+                  title="Novidades"
+                  products={newest}
+                  onAddToCart={addToCart}
+                  onOpen={openProduct}
+                />
+              )}
               {Object.entries(byCategory).map(([cat, items]) => (
-                <Carousel key={cat} title={cat} products={items} onAddToCart={addToCart} />
+                <Carousel
+                  key={cat}
+                  title={cat}
+                  products={items}
+                  onAddToCart={addToCart}
+                  onOpen={openProduct}
+                />
               ))}
               {products.length === 0 && (
                 <p className="text-sm text-zinc-400">Nenhum produto disponível no momento.</p>
@@ -576,6 +817,24 @@ export default function HomePage() {
           onRemove={removeItem}
           onClear={clearCart}
         />
+      )}
+      {selectedProduct && (
+        <ProductModal
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onAddToCart={(product) => {
+            addToCart(product)
+          }}
+        />
+      )}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-4 right-4 z-50 rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-700 shadow-lg sm:left-auto sm:right-6 sm:max-w-sm"
+        >
+          {toast}
+        </div>
       )}
     </div>
   )

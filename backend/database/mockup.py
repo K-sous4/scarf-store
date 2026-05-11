@@ -143,7 +143,7 @@ PRODUCTS = [
     # Silk
     {
         "sku": "SC-SLK-001",
-        "name": "Classic Floral Silk Scarf",
+        "name": "Lenço de Seda Floral Clássico",
         "short_description": "Vibrant floral print on pure silk. A timeless wardrobe staple.",
         "description": (
             "Crafted from the finest Charmeuse silk, this scarf features a hand-painted floral motif "
@@ -175,7 +175,7 @@ PRODUCTS = [
     },
     {
         "sku": "SC-SLK-002",
-        "name": "Geometric Ivory Silk Scarf",
+        "name": "Lenço de Seda Marfim Geométrico",
         "short_description": "Bold geometric pattern on ivory silk. Modern elegance.",
         "description": (
             "An ivory silk scarf featuring a striking geometric print in navy and gold tones. "
@@ -208,7 +208,7 @@ PRODUCTS = [
     # Wool
     {
         "sku": "SC-WOL-001",
-        "name": "Heritage Plaid Wool Scarf",
+        "name": "Lenço de Lã Xadrez Tradicional",
         "short_description": "Classic tartan plaid in merino wool. Cosy and stylish.",
         "description": (
             "Inspired by Scottish highland traditions, this merino wool scarf features a timeless "
@@ -239,7 +239,7 @@ PRODUCTS = [
     },
     {
         "sku": "SC-WOL-002",
-        "name": "Ribbed Charcoal Wool Scarf",
+        "name": "Lenço de Lã Canelado Grafite",
         "short_description": "Chunky ribbed knit in charcoal grey. Essential winter warmth.",
         "description": (
             "A sophisticated ribbed-knit scarf in deep charcoal, made from 100% pure new wool. "
@@ -271,7 +271,7 @@ PRODUCTS = [
     # Cashmere
     {
         "sku": "SC-CSH-001",
-        "name": "Signature Cashmere Wrap",
+        "name": "Xale de Cashmere Premium",
         "short_description": "Pure Grade-A cashmere wrap. Cloud-soft and luxurious.",
         "description": (
             "Our flagship cashmere wrap is woven from Grade-A Mongolian cashmere fibres, "
@@ -303,7 +303,7 @@ PRODUCTS = [
     },
     {
         "sku": "SC-CSH-002",
-        "name": "Dusty Rose Cashmere Scarf",
+        "name": "Lenço de Cashmere Rosa Antigo",
         "short_description": "Delicate dusty rose in featherlight cashmere.",
         "description": (
             "A refined cashmere scarf in a muted dusty rose tone, finished with hand-knotted "
@@ -336,7 +336,7 @@ PRODUCTS = [
     # Cotton
     {
         "sku": "SC-CTN-001",
-        "name": "Striped Cotton Bandana Scarf",
+        "name": "Lenço Bandana de Algodão Listrado",
         "short_description": "Multi-way striped cotton scarf. Casual and effortless.",
         "description": (
             "A versatile striped cotton scarf in navy and white. Wear it as a bandana, neckerchief, "
@@ -367,7 +367,7 @@ PRODUCTS = [
     },
     {
         "sku": "SC-CTN-002",
-        "name": "Tropical Print Cotton Scarf",
+        "name": "Lenço de Algodão Estampa Tropical",
         "short_description": "Bright tropical print lightweight cotton. Summer essential.",
         "description": (
             "A playful tropical print cotton scarf featuring palm leaves and exotic florals "
@@ -399,7 +399,7 @@ PRODUCTS = [
     # Viscose
     {
         "sku": "SC-VIS-001",
-        "name": "Ombre Lavender Viscose Scarf",
+        "name": "Lenço de Viscose Degradê Lavanda",
         "short_description": "Dreamy lavender ombre effect on fluid viscose.",
         "description": (
             "A dreamy hand-dyed ombre viscose scarf transitioning from deep violet to pale lavender. "
@@ -432,7 +432,7 @@ PRODUCTS = [
     # Solid colour
     {
         "sku": "SC-SOL-001",
-        "name": "Mustard Solid Lightweight Scarf",
+        "name": "Lenço Liso Mostarda Leve",
         "short_description": "Rich mustard yellow solid scarf. A pop of colour for any look.",
         "description": (
             "A clean, unfussy solid scarf in warm mustard yellow made from a modal-cotton blend. "
@@ -463,7 +463,7 @@ PRODUCTS = [
     },
     {
         "sku": "SC-SOL-002",
-        "name": "Sage Green Linen Scarf",
+        "name": "Lenço de Linho Verde Sálvia",
         "short_description": "Earthy sage linen scarf. Light and textured.",
         "description": (
             "A relaxed linen scarf in a muted sage green — perfect for warm days when you "
@@ -495,7 +495,7 @@ PRODUCTS = [
     # Silk-Wool Blend
     {
         "sku": "SC-SWB-001",
-        "name": "Terracotta Silk-Wool Blend Scarf",
+        "name": "Lenço Misto Seda-Lã Terracota",
         "short_description": "Warm terracotta tones in a luxurious silk-wool blend.",
         "description": (
             "This scarf combines the warmth of Merino wool with the drape and lustre of silk "
