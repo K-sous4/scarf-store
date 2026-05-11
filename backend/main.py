@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 load_dotenv()
 
 # Import models BEFORE creating tables
-from models import user, product, category, color, material, audit_log
+from models import user, product, product_image, category, color, material, audit_log
 from api.v1.routes import auth, products, categories, colors, materials, users
 from database.db import create_tables, SessionLocal
 from database.seed import seed_admin

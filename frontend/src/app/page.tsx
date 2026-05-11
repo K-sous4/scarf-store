@@ -28,12 +28,35 @@ function formatPrice(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? ""
+
+function resolveImageUrl(url?: string | null) {
+  if (!url) return null
+  if (url.startsWith("http://") || url.startsWith("https://")) return url
+  if (!API_BASE_URL) return url
+  const base = API_BASE_URL.replace(/\/$/, "")
+  const normalized = url.startsWith("/") ? url : `/${url}`
+  const path = base.endsWith("/api/v1") && normalized.startsWith("/api/v1/")
+    ? normalized.replace(/^\/api\/v1/, "")
+    : normalized
+  return `${base}${path}`
+}
+
+function pickPrimaryImage(images?: string[] | null) {
+  const list = images ?? []
+  if (list.length === 0) return null
+  const blob = list.find((url) => url.startsWith("/api/v1/products/images/"))
+  if (blob) return blob
+  const nonPlaceholder = list.find((url) => !url.includes("placehold.co"))
+  return nonPlaceholder ?? list[0]
+}
+
 // ── Product Card ──────────────────────────────────────────────────────────────
 
 function ProductCard({ product }: { product: Product }) {
   const displayPrice = product.discount_price ?? product.price
   const hasDiscount = product.discount_percentage > 0
-  const image = product.images?.[0] ?? `https://placehold.co/400x300/f4f4f5/71717a?text=${encodeURIComponent(product.name)}`
+  const image = resolveImageUrl(pickPrimaryImage(product.images)) ?? `https://placehold.co/400x300/f4f4f5/71717a?text=${encodeURIComponent(product.name)}`
 
   return (
     <div className="group flex-shrink-0 w-64 rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">

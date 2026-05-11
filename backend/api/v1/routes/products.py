@@ -1,15 +1,39 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Response
 from sqlalchemy.orm import Session
 from models.user import User
+from models.product_image import ProductImage
 from database.db import get_db
 from services.product import ProductService
 from api.v1.dependencies import get_current_admin
-from api.v1.schemas.product import ProductCreateRequest, ProductUpdateRequest, ProductResponse
+from api.v1.schemas.product import (
+    ProductCreateRequest,
+    ProductUpdateRequest,
+    ProductResponse,
+    ProductImagesUploadResponse,
+)
 
 router = APIRouter(prefix="/products", tags=["products"])
 
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+MAX_IMAGES_PER_REQUEST = 6
+
+
+def _image_url(image_id: int) -> str:
+    return f"/api/v1/products/images/{image_id}"
+
 
 # ============= PUBLIC =============
+
+@router.get("/images/{image_id}")
+async def get_product_image(image_id: int, db: Session = Depends(get_db)):
+    """
+    Retorna a imagem do produto armazenada no banco (público)
+    """
+    image = db.query(ProductImage).filter(ProductImage.id == image_id).first()
+    if not image:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Imagem não encontrada")
+    return Response(content=image.data, media_type=image.content_type or "application/octet-stream")
 
 @router.get("/", response_model=dict)
 async def list_products(
@@ -65,6 +89,65 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
 
 
 # ============= ADMIN =============
+
+@router.post("/{product_id}/images", response_model=ProductImagesUploadResponse, status_code=status.HTTP_201_CREATED)
+async def upload_product_images(
+    product_id: int,
+    files: list[UploadFile] = File(...),
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Faz upload de imagens e armazena no banco (admin)
+    """
+    product = ProductService.get_product(db, product_id)
+    if not product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produto não encontrado")
+
+    if not files:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Envie ao menos uma imagem")
+    if len(files) > MAX_IMAGES_PER_REQUEST:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Limite de {MAX_IMAGES_PER_REQUEST} imagens por envio"
+        )
+
+    urls: list[str] = []
+    try:
+        for upload in files:
+            content_type = upload.content_type or ""
+            if content_type not in ALLOWED_IMAGE_TYPES:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Formato inválido. Use JPG, PNG ou WEBP"
+                )
+            data = await upload.read()
+            if not data:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Arquivo vazio")
+            if len(data) > MAX_IMAGE_SIZE_BYTES:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Imagem excede 5MB"
+                )
+
+            image = ProductImage(
+                product_id=product_id,
+                filename=upload.filename,
+                content_type=content_type,
+                data=data,
+            )
+            db.add(image)
+            db.flush()
+            urls.append(_image_url(image.id))
+
+        db.commit()
+        return {"urls": urls}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Erro ao salvar imagens")
 
 @router.post("/", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 async def create_product(

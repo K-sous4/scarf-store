@@ -45,6 +45,8 @@ interface FilterOption {
 
 type FormTab = "basic" | "details"
 
+const MAX_IMAGE_FILES = 6
+
 const EMPTY_FORM = {
   sku: "",
   name: "",
@@ -77,6 +79,33 @@ type FormState = typeof EMPTY_FORM
 
 const inputCls =
   "rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900/20 focus:border-zinc-400 transition w-full"
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? ""
+
+function resolveImageUrl(url?: string | null) {
+  if (!url) return null
+  if (url.startsWith("http://") || url.startsWith("https://")) return url
+  if (!API_BASE_URL) return url
+  const base = API_BASE_URL.replace(/\/$/, "")
+  const normalized = url.startsWith("/") ? url : `/${url}`
+  const path = base.endsWith("/api/v1") && normalized.startsWith("/api/v1/")
+    ? normalized.replace(/^\/api\/v1/, "")
+    : normalized
+  return `${base}${path}`
+}
+
+function pickPrimaryImage(images?: string[] | null) {
+  const list = images ?? []
+  if (list.length === 0) return null
+  const blob = list.find((url) => url.startsWith("/api/v1/products/images/"))
+  if (blob) return blob
+  const nonPlaceholder = list.find((url) => !url.includes("placehold.co"))
+  return nonPlaceholder ?? list[0]
+}
+
+function imagePlaceholder(name: string) {
+  return `https://placehold.co/400x300/f4f4f5/71717a?text=${encodeURIComponent(name)}`
+}
 
 function Field({ label, children, half }: { label: string; children: React.ReactNode; half?: boolean }) {
   return (
@@ -200,6 +229,11 @@ function ProductModal({
   onClose,
   saving,
   error,
+  uploadError,
+  imageFiles,
+  maxImageFiles,
+  onAddFiles,
+  onRemoveFile,
   categories,
   colors,
   materials,
@@ -211,11 +245,20 @@ function ProductModal({
   onClose: () => void
   saving: boolean
   error: string | null
+  uploadError: string | null
+  imageFiles: File[]
+  maxImageFiles: number
+  onAddFiles: (event: React.ChangeEvent<HTMLInputElement>) => void
+  onRemoveFile: (index: number) => void
   categories: FilterOption[]
   colors: FilterOption[]
   materials: FilterOption[]
 }) {
   const [tab, setTab] = useState<FormTab>("basic")
+  const savedImages = useMemo(
+    () => form.images.split(",").map((s) => s.trim()).filter(Boolean),
+    [form.images]
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
@@ -345,6 +388,62 @@ function ProductModal({
                 <Field label="URLs das imagens (separadas por vírgula)">
                   <input className={inputCls} value={form.images} onChange={(e) => onChange({ images: e.target.value })} placeholder="https://…, https://…" />
                 </Field>
+                {savedImages.length > 0 && (
+                  <Field label="Imagens salvas">
+                    <div className="grid grid-cols-3 gap-2">
+                      {savedImages.map((url) => (
+                        <div key={url} className="relative overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={resolveImageUrl(url) ?? url}
+                            alt="Imagem do produto"
+                            className="h-20 w-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </Field>
+                )}
+                <Field label="Upload de imagens">
+                  <div className="flex flex-col gap-2">
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={onAddFiles}
+                      className="block w-full text-xs text-zinc-600 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-900 file:px-3 file:py-2 file:text-xs file:font-medium file:text-white hover:file:bg-zinc-700"
+                    />
+                    {imageFiles.length > 0 && (
+                      <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-zinc-600">
+                            {imageFiles.length} arquivo{imageFiles.length !== 1 ? "s" : ""} selecionado{imageFiles.length !== 1 ? "s" : ""}
+                          </span>
+                          <span className="text-[10px] text-zinc-400">máx. {maxImageFiles}</span>
+                        </div>
+                        <ul className="mt-2 space-y-1">
+                          {imageFiles.map((file, index) => (
+                            <li key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 text-xs text-zinc-600">
+                              <span className="truncate">{file.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => onRemoveFile(index)}
+                                className="shrink-0 rounded-md px-2 py-0.5 text-[10px] text-red-600 hover:bg-red-50"
+                              >
+                                Remover
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <p className="text-[11px] text-zinc-400">JPG, PNG ou WEBP (ate 5MB por imagem)</p>
+                    {uploadError && (
+                      <p className="text-xs text-red-600">{uploadError}</p>
+                    )}
+                  </div>
+                </Field>
 
                 {/* Flags */}
                 <div className="col-span-2 flex flex-col gap-2 pt-1">
@@ -415,6 +514,8 @@ export default function ProductsPage() {
   const [deletingNow, setDeletingNow] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const [imageFiles, setImageFiles] = useState<File[]>([])
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   const [search, setSearch] = useState("")
   const [filterActive, setFilterActive] = useState<"all" | "active" | "inactive">("all")
@@ -458,6 +559,8 @@ export default function ProductsPage() {
   function openCreate() {
     setForm(EMPTY_FORM)
     setError(null)
+    setUploadError(null)
+    setImageFiles([])
     setModal("create")
   }
 
@@ -465,6 +568,8 @@ export default function ProductsPage() {
     setEditing(p)
     setForm(productToForm(p))
     setError(null)
+    setUploadError(null)
+    setImageFiles([])
     setModal("edit")
   }
 
@@ -472,21 +577,82 @@ export default function ProductsPage() {
     setForm((f) => ({ ...f, ...patch }))
   }
 
+  function handleAddFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    const incoming = Array.from(event.target.files ?? [])
+    if (incoming.length === 0) return
+
+    setUploadError(null)
+    setImageFiles((prev) => {
+      const combined = [...prev, ...incoming]
+      if (combined.length > MAX_IMAGE_FILES) {
+        setUploadError(`Limite de ${MAX_IMAGE_FILES} imagens por envio`)
+        return prev
+      }
+      return combined
+    })
+
+    event.target.value = ""
+  }
+
+  function removeImageFile(index: number) {
+    setImageFiles((prev) => {
+      const next = prev.filter((_, i) => i !== index)
+      if (next.length <= MAX_IMAGE_FILES) setUploadError(null)
+      return next
+    })
+  }
+
+  async function uploadImages(productId: number, files: File[]) {
+    if (files.length === 0) return [] as string[]
+    const formData = new FormData()
+    files.forEach((file) => formData.append("files", file))
+    const data = await api.postForm<{ urls: string[] }>(`/products/${productId}/images`, formData)
+    return data.urls ?? []
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     setError(null)
+    if (uploadError) {
+      setSaving(false)
+      setError(uploadError)
+      return
+    }
+    let createdProduct: Product | null = null
     try {
       const payload = formToPayload(form)
       if (modal === "create") {
-        await api.post("/products/", payload)
+        createdProduct = await api.post<Product>("/products/", payload)
+
+        const uploadedUrls = await uploadImages(createdProduct.id, imageFiles)
+        if (uploadedUrls.length > 0) {
+          const images = [...uploadedUrls, ...(payload.images ?? [])]
+          await api.put(`/products/${createdProduct.id}`, { images })
+        }
       } else {
-        await api.put(`/products/${editing!.id}`, payload)
+        let images = payload.images ?? []
+        const uploadedUrls = await uploadImages(editing!.id, imageFiles)
+        if (uploadedUrls.length > 0) {
+          images = [...uploadedUrls, ...images]
+        }
+        await api.put(`/products/${editing!.id}`, { ...payload, images })
       }
       setModal(null)
+      setImageFiles([])
       loadProducts()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Erro ao salvar produto")
+      if (createdProduct && modal === "create") {
+        setEditing(createdProduct)
+        setModal("edit")
+        setError(
+          err instanceof ApiError
+            ? `${err.message}. Produto criado; use editar para enviar as imagens.`
+            : "Produto criado, mas houve erro no upload. Use editar para reenviar as imagens."
+        )
+      } else {
+        setError(err instanceof ApiError ? err.message : "Erro ao salvar produto")
+      }
     } finally {
       setSaving(false)
     }
@@ -629,20 +795,33 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {filtered.map((p) => (
+                {filtered.map((p) => {
+                  const preview = resolveImageUrl(pickPrimaryImage(p.images)) ?? imagePlaceholder(p.name)
+                  return (
                   <tr key={p.id} className="hover:bg-zinc-50 transition-colors">
                     <td className="px-4 py-3">
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-zinc-900">{p.name}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 overflow-hidden rounded-lg bg-zinc-100 border border-zinc-200">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={preview}
+                            alt={p.name}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-zinc-900">{p.name}</span>
                           {p.is_featured && (
                             <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Destaque</span>
                           )}
                           {p.is_new && (
                             <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">Novo</span>
                           )}
+                          </div>
+                          <span className="font-mono text-xs text-zinc-400 mt-0.5">{p.sku}</span>
                         </div>
-                        <span className="font-mono text-xs text-zinc-400 mt-0.5">{p.sku}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-zinc-500">
@@ -696,7 +875,8 @@ export default function ProductsPage() {
                       </td>
                     )}
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
             <div className="border-t border-zinc-100 px-4 py-2.5 text-xs text-zinc-400">
@@ -717,6 +897,11 @@ export default function ProductsPage() {
           onClose={() => setModal(null)}
           saving={saving}
           error={error}
+          uploadError={uploadError}
+          imageFiles={imageFiles}
+          maxImageFiles={MAX_IMAGE_FILES}
+          onAddFiles={handleAddFiles}
+          onRemoveFile={removeImageFile}
           categories={categories}
           colors={colors}
           materials={materials}

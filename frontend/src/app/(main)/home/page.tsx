@@ -35,6 +35,29 @@ function unitPrice(p: Product) {
   return p.discount_price ?? p.price
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? ""
+
+function resolveImageUrl(url?: string | null) {
+  if (!url) return null
+  if (url.startsWith("http://") || url.startsWith("https://")) return url
+  if (!API_BASE_URL) return url
+  const base = API_BASE_URL.replace(/\/$/, "")
+  const normalized = url.startsWith("/") ? url : `/${url}`
+  const path = base.endsWith("/api/v1") && normalized.startsWith("/api/v1/")
+    ? normalized.replace(/^\/api\/v1/, "")
+    : normalized
+  return `${base}${path}`
+}
+
+function pickPrimaryImage(images?: string[] | null) {
+  const list = images ?? []
+  if (list.length === 0) return null
+  const blob = list.find((url) => url.startsWith("/api/v1/products/images/"))
+  if (blob) return blob
+  const nonPlaceholder = list.find((url) => !url.includes("placehold.co"))
+  return nonPlaceholder ?? list[0]
+}
+
 // ── Cart Drawer ───────────────────────────────────────────────────────────────
 
 function CartDrawer({
@@ -118,7 +141,7 @@ function CartDrawer({
           ) : (
             <ul className="space-y-4">
               {items.map(({ product, qty }) => {
-                const image = product.images?.[0] ??
+                const image = resolveImageUrl(pickPrimaryImage(product.images)) ??
                   `https://placehold.co/80x80/f4f4f5/71717a?text=${encodeURIComponent(product.name)}`
                 return (
                   <li key={product.id} className="flex gap-3 rounded-xl border border-zinc-100 bg-zinc-50 p-3">
@@ -226,7 +249,7 @@ function ProductCard({
   const isLowStock =
     !isOutOfStock && product.available_stock <= product.low_stock_threshold
   const image =
-    product.images?.[0] ??
+    resolveImageUrl(pickPrimaryImage(product.images)) ??
     `https://placehold.co/400x300/f4f4f5/71717a?text=${encodeURIComponent(product.name)}`
 
   function handleAdd() {
