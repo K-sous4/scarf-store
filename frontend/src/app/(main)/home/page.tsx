@@ -27,12 +27,96 @@ interface CartItem {
   qty: number
 }
 
+interface PaymentSettingsPublic {
+  phone_number: string | null
+}
+
 function formatPrice(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
 
 function unitPrice(p: Product) {
   return p.discount_price ?? p.price
+}
+
+const PIX_MERCHANT_NAME = "Scarf Store"
+const PIX_MERCHANT_CITY = "Sao Paulo"
+const PIX_TXID = "SCARFSTORE"
+
+function sanitizePixText(value: string, maxLen: number) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9 ]/g, "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, maxLen)
+    .toUpperCase()
+}
+
+function normalizePixPhoneKey(value: string) {
+  const digits = value.replace(/\D/g, "")
+  if (!digits) return ""
+  if (value.includes("+")) return `+${digits}`
+  if (digits.startsWith("55")) return `+${digits}`
+  return `+55${digits}`
+}
+
+function tlv(id: string, value: string) {
+  return `${id}${value.length.toString().padStart(2, "0")}${value}`
+}
+
+function crc16Ccitt(payload: string) {
+  let crc = 0xffff
+  for (let i = 0; i < payload.length; i += 1) {
+    crc ^= payload.charCodeAt(i) << 8
+    for (let j = 0; j < 8; j += 1) {
+      crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1
+      crc &= 0xffff
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, "0")
+}
+
+function buildPixPayload({
+  key,
+  merchantName,
+  merchantCity,
+  amount,
+  txid,
+}: {
+  key: string
+  merchantName: string
+  merchantCity: string
+  amount: number
+  txid: string
+}) {
+  if (!key) return ""
+
+  const merchantAccountInfo =
+    tlv("00", "BR.GOV.BCB.PIX") +
+    tlv("01", key)
+
+  const name = sanitizePixText(merchantName, 25)
+  const city = sanitizePixText(merchantCity, 15)
+  const txidValue = sanitizePixText(txid, 25)
+  const amountValue = amount > 0 ? amount.toFixed(2) : ""
+
+  const payload = [
+    "000201",
+    tlv("26", merchantAccountInfo),
+    "52040000",
+    "5303986",
+    amountValue ? tlv("54", amountValue) : "",
+    "5802BR",
+    tlv("59", name),
+    tlv("60", city),
+    txidValue ? tlv("62", tlv("05", txidValue)) : "",
+  ].join("")
+
+  const payloadWithCrc = `${payload}6304`
+  const crc = crc16Ccitt(payloadWithCrc)
+  return `${payloadWithCrc}${crc}`
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? ""
@@ -74,12 +158,14 @@ function CartDrawer({
   onChangeQty,
   onRemove,
   onClear,
+  onCheckout,
 }: {
   items: CartItem[]
   onClose: () => void
   onChangeQty: (id: number, delta: number) => void
   onRemove: (id: number) => void
   onClear: () => void
+  onCheckout: (total: number) => void
 }) {
   const total = items.reduce((s, i) => s + unitPrice(i.product) * i.qty, 0)
   const totalItems = items.reduce((s, i) => s + i.qty, 0)
@@ -224,6 +310,7 @@ function CartDrawer({
             </div>
             <button
               disabled={items.some((i) => i.qty > i.product.available_stock)}
+              onClick={() => onCheckout(total)}
               className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Finalizar pedido
@@ -238,6 +325,111 @@ function CartDrawer({
         )}
       </div>
     </>
+  )
+}
+
+// ── Payment Modal ───────────────────────────────────────────────────────────
+
+function PaymentModal({
+  total,
+  phone,
+  loading,
+  error,
+  onClose,
+  onRetry,
+}: {
+  total: number
+  phone: string | null
+  loading: boolean
+  error: string | null
+  onClose: () => void
+  onRetry: () => void
+}) {
+  const normalizedPhone = phone ? normalizePixPhoneKey(phone) : ""
+  const payload = normalizedPhone
+    ? buildPixPayload({
+        key: normalizedPhone,
+        merchantName: PIX_MERCHANT_NAME,
+        merchantCity: PIX_MERCHANT_CITY,
+        amount: total,
+        txid: PIX_TXID,
+      })
+    : ""
+  const qrUrl = payload
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(payload)}`
+    : ""
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <button
+        aria-label="Fechar"
+        onClick={onClose}
+        className="absolute inset-0 h-full w-full cursor-default"
+      />
+      <div
+        className="relative z-10 w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-semibold text-zinc-900">Pagamento PIX</h3>
+            <p className="mt-1 text-sm text-zinc-500">
+              Escaneie o QR code para pagar o pedido.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex size-9 items-center justify-center rounded-full border border-zinc-200 text-zinc-400 transition hover:border-zinc-300 hover:text-zinc-600"
+          >
+            <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-zinc-500">Total</span>
+            <span className="font-semibold text-zinc-900">{formatPrice(total)}</span>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="mt-6 text-sm text-zinc-400">Carregando pagamento…</div>
+        ) : error ? (
+          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+            {error}
+            <button
+              onClick={onRetry}
+              className="mt-3 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-100 transition"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        ) : !normalizedPhone ? (
+          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            Telefone de pagamento nao configurado. Fale com o administrador.
+          </div>
+        ) : (
+          <div className="mt-6 flex flex-col items-center gap-4">
+            <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrUrl}
+                alt="QR code PIX"
+                className="size-[260px]"
+              />
+            </div>
+            <div className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-zinc-400">Chave PIX</p>
+              <p className="mt-1 text-sm font-semibold text-zinc-900 break-all">
+                {normalizedPhone}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -612,6 +804,14 @@ export default function HomePage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0)
+  const cartTotal = cartItems.reduce((s, i) => s + unitPrice(i.product) * i.qty, 0)
+
+  // Payment
+  const [paymentOpen, setPaymentOpen] = useState(false)
+  const [paymentPhone, setPaymentPhone] = useState<string | null>(null)
+  const [paymentLoading, setPaymentLoading] = useState(false)
+  const [paymentError, setPaymentError] = useState<string | null>(null)
+  const [paymentTotal, setPaymentTotal] = useState(0)
 
   const showToast = useCallback((message: string) => {
     setToast(message)
@@ -667,9 +867,38 @@ export default function HomePage() {
 
   const clearCart = useCallback(() => setCartItems([]), [])
 
+  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1"
+
+  const loadPaymentPhone = useCallback(async () => {
+    setPaymentLoading(true)
+    setPaymentError(null)
+    try {
+      const response = await fetch(`${apiBase}/payment-settings/public`, { credentials: "include" })
+      if (!response.ok) throw new Error("request_failed")
+      const data = await response.json() as PaymentSettingsPublic
+      setPaymentPhone(data.phone_number ?? null)
+    } catch {
+      setPaymentPhone(null)
+      setPaymentError("Nao foi possivel carregar o telefone de pagamento.")
+    } finally {
+      setPaymentLoading(false)
+    }
+  }, [apiBase])
+
+  const openCheckout = useCallback((total: number) => {
+    setPaymentTotal(total)
+    setCartOpen(false)
+    setPaymentOpen(true)
+    loadPaymentPhone()
+  }, [loadPaymentPhone])
+
+  const closeCheckout = useCallback(() => {
+    setPaymentOpen(false)
+    setPaymentError(null)
+  }, [])
+
   useEffect(() => {
     if (isAdmin) return
-    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1"
     fetch(`${apiBase}/products/?limit=500`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data: { products: Product[] } | Product[]) => {
@@ -678,7 +907,7 @@ export default function HomePage() {
       })
       .catch(() => setProducts([]))
       .finally(() => setLoadingProducts(false))
-  }, [isAdmin])
+  }, [apiBase, isAdmin])
 
   const featured = products.filter((p) => p.is_featured)
   const newest = products.filter((p) => p.is_new)
@@ -816,6 +1045,17 @@ export default function HomePage() {
           onChangeQty={changeQty}
           onRemove={removeItem}
           onClear={clearCart}
+          onCheckout={openCheckout}
+        />
+      )}
+      {paymentOpen && (
+        <PaymentModal
+          total={paymentTotal}
+          phone={paymentPhone}
+          loading={paymentLoading}
+          error={paymentError}
+          onClose={closeCheckout}
+          onRetry={loadPaymentPhone}
         />
       )}
       {selectedProduct && (

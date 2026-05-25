@@ -7,7 +7,7 @@ import { api, ApiError } from "@/lib/api"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = "categories" | "colors" | "materials" | "users"
+type Tab = "categories" | "colors" | "materials" | "users" | "payment"
 
 interface Category {
   id: number
@@ -36,6 +36,11 @@ interface User {
   username: string
   email: string | null
   role: string
+}
+
+interface PaymentSettings {
+  id: number
+  phone_number: string | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -887,6 +892,101 @@ function UsersTab() {
   )
 }
 
+// ── Payment Tab ─────────────────────────────────────────────────────────────
+
+function PaymentTab() {
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+  const [form, setForm] = useState({ phone_number: "" })
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await api.get<PaymentSettings>("/payment-settings/")
+      setForm({ phone_number: data.phone_number ?? "" })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Erro ao carregar")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    setSuccess(false)
+    try {
+      const cleaned = form.phone_number.trim()
+      const data = await api.put<PaymentSettings>("/payment-settings/", {
+        phone_number: cleaned ? cleaned : null,
+      })
+      setForm({ phone_number: data.phone_number ?? "" })
+      setSuccess(true)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Erro ao salvar")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="max-w-xl">
+      <div className="rounded-xl border border-zinc-200 bg-white p-6">
+        <h3 className="text-base font-semibold text-zinc-900">Pagamento</h3>
+        <p className="mt-1 text-sm text-zinc-500">
+          Cadastre o numero de telefone usado para contato sobre pagamentos.
+        </p>
+
+        {loading ? (
+          <div className="py-8 text-sm text-zinc-400">Carregando…</div>
+        ) : (
+          <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
+            <Field label="Numero de telefone">
+              <input
+                className={inputCls}
+                value={form.phone_number}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, phone_number: e.target.value }))
+                  setSuccess(false)
+                }}
+                placeholder="Ex: +55 11 98765-4321"
+              />
+            </Field>
+
+            {error && (
+              <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
+                {error}
+              </p>
+            )}
+
+            {success && !error && (
+              <p className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700">
+                Telefone atualizado com sucesso.
+              </p>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 transition-colors"
+              >
+                {saving ? "Salvando…" : "Salvar"}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Row Actions ───────────────────────────────────────────────────────────────
 
 function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete?: () => void }) {
@@ -923,6 +1023,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "colors",     label: "Cores" },
   { id: "materials",  label: "Materiais" },
   { id: "users",      label: "Usuários" },
+  { id: "payment",    label: "Pagamento" },
 ]
 
 export default function SettingsPage() {
@@ -950,7 +1051,7 @@ export default function SettingsPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-semibold text-zinc-900">Configurações</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Gerencie categorias, cores, materiais e usuários do sistema.
+          Gerencie categorias, cores, materiais, usuários e pagamento do sistema.
         </p>
       </div>
 
@@ -977,6 +1078,7 @@ export default function SettingsPage() {
         {activeTab === "colors"     && <ColorsTab />}
         {activeTab === "materials"  && <MaterialsTab />}
         {activeTab === "users"      && <UsersTab />}
+        {activeTab === "payment"    && <PaymentTab />}
       </div>
     </div>
   )

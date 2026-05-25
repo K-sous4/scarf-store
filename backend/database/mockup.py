@@ -10,6 +10,7 @@ from models.category import Category
 from models.color import Color
 from models.material import Material
 from models.product import Product
+from models.payment_settings import PaymentSettings
 
 logger = logging.getLogger(__name__)
 
@@ -569,9 +570,19 @@ def seed_products(db: Session) -> None:
     logger.info(f"✓ {len(PRODUCTS)} products seeded.")
 
 
+def seed_payment_settings(db: Session) -> None:
+    if db.query(PaymentSettings).first():
+        logger.info("✓ Payment settings already seeded — skipping.")
+        return
+    db.add(PaymentSettings(phone_number="13996257178"))
+    db.commit()
+    logger.info("✓ Payment settings seeded.")
+
+
 def seed_mockup(db: Session) -> None:
     """Run all mockup seeds. Safe to call multiple times — each seed is idempotent."""
     logger.info("Running mockup seed data...")
+    seed_payment_settings(db)
     seed_categories(db)
     seed_colors(db)
     seed_materials(db)
