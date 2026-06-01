@@ -10,8 +10,8 @@ from contextlib import asynccontextmanager
 load_dotenv()
 
 # Import models BEFORE creating tables
-from models import user, product, product_image, category, color, material, audit_log, payment_settings
-from api.v1.routes import auth, products, categories, colors, materials, users, payment_settings
+from models import user, product, product_image, category, color, material, audit_log, payment_settings, order
+from api.v1.routes import auth, products, categories, colors, materials, users, payment_settings, orders
 from database.db import create_tables, SessionLocal
 from database.seed import seed_admin
 from database.mockup import seed_mockup
@@ -112,6 +112,7 @@ app.include_router(colors.router, prefix="/api/v1")
 app.include_router(materials.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(payment_settings.router, prefix="/api/v1")
+app.include_router(orders.router, prefix="/api/v1")
 
 
 @app.get("/ping")

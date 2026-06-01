@@ -9,6 +9,7 @@ interface NavItem {
   href: string
   icon: React.ReactNode
   adminOnly?: boolean
+  userOnly?: boolean
 }
 
 const navItems: NavItem[] = [
@@ -28,6 +29,16 @@ const navItems: NavItem[] = [
     icon: (
       <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+      </svg>
+    ),
+  },
+  {
+    label: "Pedidos",
+    href: "/orders",
+    adminOnly: true,
+    icon: (
+      <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 5h6m-6 4h6m-6 4h6m-6 4h6M7 5a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2H7z" />
       </svg>
     ),
   },
@@ -52,15 +63,27 @@ const navItems: NavItem[] = [
       </svg>
     ),
   },
+  {
+    label: "Minhas compras",
+    href: "/purchases",
+    userOnly: true,
+    icon: (
+      <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01" />
+      </svg>
+    ),
+  },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
 
-  const visibleItems = navItems.filter(
-    (item) => !item.adminOnly || user?.role === "admin"
-  )
+  const visibleItems = navItems.filter((item) => {
+    if (item.adminOnly && user?.role !== "admin") return false
+    if (item.userOnly && user?.role === "admin") return false
+    return true
+  })
 
   return (
     <aside className="flex h-screen w-56 flex-col border-r border-zinc-200 bg-white">

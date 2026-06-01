@@ -31,6 +31,17 @@ interface PaymentSettingsPublic {
   phone_number: string | null
 }
 
+interface OrderResponse {
+  id: number
+  status: string
+  total_amount: number
+  payment_method: string
+  pix_txid?: string | null
+  payment_reference?: string | null
+}
+
+type OrderStatus = "pending_payment" | "payment_reported" | "paid" | "cancelled"
+
 function formatPrice(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
@@ -41,7 +52,7 @@ function unitPrice(p: Product) {
 
 const PIX_MERCHANT_NAME = "Scarf Store"
 const PIX_MERCHANT_CITY = "Sao Paulo"
-const PIX_TXID = "SCARFSTORE"
+const DEFAULT_PIX_TXID = "SCARFSTORE"
 
 function sanitizePixText(value: string, maxLen: number) {
   return value
@@ -60,6 +71,21 @@ function normalizePixPhoneKey(value: string) {
   if (value.includes("+")) return `+${digits}`
   if (digits.startsWith("55")) return `+${digits}`
   return `+55${digits}`
+}
+
+function paymentStatusLabel(status: OrderStatus | null) {
+  switch (status) {
+    case "paid":
+      return "Pagamento confirmado"
+    case "payment_reported":
+      return "Pagamento informado"
+    case "pending_payment":
+      return "Aguardando pagamento"
+    case "cancelled":
+      return "Pedido cancelado"
+    default:
+      return "Status indisponivel"
+  }
 }
 
 function tlv(id: string, value: string) {
@@ -159,6 +185,7 @@ function CartDrawer({
   onRemove,
   onClear,
   onCheckout,
+  checkoutLoading,
 }: {
   items: CartItem[]
   onClose: () => void
@@ -166,6 +193,7 @@ function CartDrawer({
   onRemove: (id: number) => void
   onClear: () => void
   onCheckout: (total: number) => void
+  checkoutLoading: boolean
 }) {
   const total = items.reduce((s, i) => s + unitPrice(i.product) * i.qty, 0)
   const totalItems = items.reduce((s, i) => s + i.qty, 0)
@@ -309,11 +337,11 @@ function CartDrawer({
               <span className="text-base font-bold text-zinc-900">{formatPrice(total)}</span>
             </div>
             <button
-              disabled={items.some((i) => i.qty > i.product.available_stock)}
+              disabled={checkoutLoading || items.some((i) => i.qty > i.product.available_stock)}
               onClick={() => onCheckout(total)}
               className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Finalizar pedido
+              {checkoutLoading ? "Criando pedido..." : "Finalizar pedido"}
             </button>
             <button
               onClick={onClear}
@@ -335,6 +363,11 @@ function PaymentModal({
   phone,
   loading,
   error,
+  orderId,
+  pixTxid,
+  status,
+  confirmingPayment,
+  onConfirmPayment,
   onClose,
   onRetry,
 }: {
@@ -342,22 +375,37 @@ function PaymentModal({
   phone: string | null
   loading: boolean
   error: string | null
+  orderId: number | null
+  pixTxid: string | null
+  status: OrderStatus | null
+  confirmingPayment: boolean
+  onConfirmPayment: (reference: string) => void
   onClose: () => void
   onRetry: () => void
 }) {
   const normalizedPhone = phone ? normalizePixPhoneKey(phone) : ""
+  const [reference, setReference] = useState("")
+  const statusLabel = paymentStatusLabel(status)
+  const canConfirm = Boolean(orderId) && status === "pending_payment"
+  const isReported = status === "payment_reported"
+  const isPaid = status === "paid"
+  const txid = pixTxid ?? DEFAULT_PIX_TXID
   const payload = normalizedPhone
     ? buildPixPayload({
         key: normalizedPhone,
         merchantName: PIX_MERCHANT_NAME,
         merchantCity: PIX_MERCHANT_CITY,
         amount: total,
-        txid: PIX_TXID,
+        txid,
       })
     : ""
   const qrUrl = payload
     ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(payload)}`
     : ""
+
+  useEffect(() => {
+    setReference("")
+  }, [orderId])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
@@ -426,6 +474,49 @@ function PaymentModal({
                 {normalizedPhone}
               </p>
             </div>
+          </div>
+        )}
+
+        {orderId && (
+          <div className="mt-6 rounded-2xl border border-zinc-200 bg-white px-4 py-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-zinc-500">Pedido</span>
+              <span className="font-semibold text-zinc-900">#{orderId}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-xs text-zinc-500">
+              <span>Status</span>
+              <span className="font-medium text-zinc-700">{statusLabel}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-xs text-zinc-500">
+              <span>TXID</span>
+              <span className="font-medium text-zinc-700">{txid}</span>
+            </div>
+            {isReported && (
+              <p className="mt-3 text-xs text-amber-700">
+                Pagamento informado. Aguarde confirmacao do admin.
+              </p>
+            )}
+            {isPaid && (
+              <p className="mt-3 text-xs text-emerald-700">Pagamento confirmado.</p>
+            )}
+            {canConfirm && (
+              <div className="mt-4">
+                <label className="text-xs font-medium text-zinc-600">Referencia do pagamento</label>
+                <input
+                  value={reference}
+                  onChange={(event) => setReference(event.target.value)}
+                  placeholder="Ex: ultimos 6 digitos do comprovante"
+                  className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900/20 focus:border-zinc-400 transition"
+                />
+              </div>
+            )}
+            <button
+              onClick={() => onConfirmPayment(reference)}
+              disabled={!canConfirm || confirmingPayment || reference.trim().length < 3}
+              className="mt-4 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {confirmingPayment ? "Confirmando..." : "Confirmar pagamento"}
+            </button>
           </div>
         )}
       </div>
@@ -804,7 +895,6 @@ export default function HomePage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [cartOpen, setCartOpen] = useState(false)
   const cartCount = cartItems.reduce((s, i) => s + i.qty, 0)
-  const cartTotal = cartItems.reduce((s, i) => s + unitPrice(i.product) * i.qty, 0)
 
   // Payment
   const [paymentOpen, setPaymentOpen] = useState(false)
@@ -812,6 +902,11 @@ export default function HomePage() {
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [paymentTotal, setPaymentTotal] = useState(0)
+  const [orderId, setOrderId] = useState<number | null>(null)
+  const [pixTxid, setPixTxid] = useState<string | null>(null)
+  const [paymentStatus, setPaymentStatus] = useState<OrderStatus | null>(null)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [confirmingPayment, setConfirmingPayment] = useState(false)
 
   const showToast = useCallback((message: string) => {
     setToast(message)
@@ -869,33 +964,116 @@ export default function HomePage() {
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1"
 
-  const loadPaymentPhone = useCallback(async () => {
-    setPaymentLoading(true)
-    setPaymentError(null)
+  const fetchPaymentPhone = useCallback(async () => {
     try {
       const response = await fetch(`${apiBase}/payment-settings/public`, { credentials: "include" })
       if (!response.ok) throw new Error("request_failed")
       const data = await response.json() as PaymentSettingsPublic
-      setPaymentPhone(data.phone_number ?? null)
+      return data.phone_number ?? null
     } catch {
-      setPaymentPhone(null)
-      setPaymentError("Nao foi possivel carregar o telefone de pagamento.")
-    } finally {
-      setPaymentLoading(false)
+      return null
     }
   }, [apiBase])
 
-  const openCheckout = useCallback((total: number) => {
-    setPaymentTotal(total)
-    setCartOpen(false)
-    setPaymentOpen(true)
-    loadPaymentPhone()
-  }, [loadPaymentPhone])
+  const loadPaymentPhone = useCallback(async () => {
+    setPaymentLoading(true)
+    setPaymentError(null)
+    const phone = await fetchPaymentPhone()
+    if (!phone) {
+      setPaymentPhone(null)
+      setPaymentError("Nao foi possivel carregar o telefone de pagamento.")
+    } else {
+      setPaymentPhone(phone)
+    }
+    setPaymentLoading(false)
+    return phone
+  }, [fetchPaymentPhone])
+
+  const openCheckout = useCallback(async (total: number) => {
+    if (cartItems.length === 0) return
+    setCheckoutLoading(true)
+    try {
+      setPaymentError(null)
+      const phone = await fetchPaymentPhone()
+      if (!phone) {
+        showToast("Pagamento PIX nao configurado. Fale com o administrador.")
+        return
+      }
+      setPaymentPhone(phone)
+
+      const response = await fetch(`${apiBase}/orders/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          items: cartItems.map((item) => ({
+            product_id: item.product.id,
+            quantity: item.qty,
+          })),
+        }),
+      })
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => null)
+        throw new Error(err?.detail ?? "Nao foi possivel criar o pedido")
+      }
+
+      const data = await response.json() as OrderResponse
+      setOrderId(data.id)
+      setPaymentStatus(data.status as OrderStatus)
+      setPaymentTotal(data.total_amount ?? total)
+      setPixTxid(data.pix_txid ?? null)
+      setCartItems([])
+      setCartOpen(false)
+      setPaymentOpen(true)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Nao foi possivel criar o pedido")
+    } finally {
+      setCheckoutLoading(false)
+    }
+  }, [apiBase, cartItems, fetchPaymentPhone, showToast])
 
   const closeCheckout = useCallback(() => {
     setPaymentOpen(false)
     setPaymentError(null)
+    setOrderId(null)
+    setPixTxid(null)
+    setPaymentStatus(null)
+    setPaymentTotal(0)
   }, [])
+
+  const confirmPayment = useCallback(async (reference: string) => {
+    if (!orderId) return
+    const trimmed = reference.trim()
+    if (trimmed.length < 3) {
+      showToast("Informe uma referencia valida para o pagamento.")
+      return
+    }
+    setConfirmingPayment(true)
+    try {
+      const response = await fetch(`${apiBase}/orders/${orderId}/confirm-payment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ reference: trimmed }),
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => null)
+        throw new Error(err?.detail ?? "Nao foi possivel confirmar o pagamento")
+      }
+      const data = await response.json() as OrderResponse
+      setPaymentStatus(data.status as OrderStatus)
+      showToast("Pagamento informado. Aguarde confirmacao.")
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Nao foi possivel confirmar o pagamento")
+    } finally {
+      setConfirmingPayment(false)
+    }
+  }, [apiBase, orderId, showToast])
 
   useEffect(() => {
     if (isAdmin) return
@@ -1046,6 +1224,7 @@ export default function HomePage() {
           onRemove={removeItem}
           onClear={clearCart}
           onCheckout={openCheckout}
+          checkoutLoading={checkoutLoading}
         />
       )}
       {paymentOpen && (
@@ -1054,6 +1233,11 @@ export default function HomePage() {
           phone={paymentPhone}
           loading={paymentLoading}
           error={paymentError}
+          orderId={orderId}
+          pixTxid={pixTxid}
+          status={paymentStatus}
+          confirmingPayment={confirmingPayment}
+          onConfirmPayment={confirmPayment}
           onClose={closeCheckout}
           onRetry={loadPaymentPhone}
         />
