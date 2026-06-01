@@ -1,7 +1,14 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import { PixQrCode } from "@/components/PixQrCode"
 import { useAuth } from "@/lib/auth-context"
+import {
+  buildPixPayload,
+  normalizePixPhoneKey,
+  PIX_MERCHANT_CITY,
+  PIX_MERCHANT_NAME,
+} from "@/lib/pix"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -50,29 +57,6 @@ function unitPrice(p: Product) {
   return p.discount_price ?? p.price
 }
 
-const PIX_MERCHANT_NAME = "Scarf Store"
-const PIX_MERCHANT_CITY = "Sao Paulo"
-const DEFAULT_PIX_TXID = "SCARFSTORE"
-
-function sanitizePixText(value: string, maxLen: number) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^A-Za-z0-9 ]/g, "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .slice(0, maxLen)
-    .toUpperCase()
-}
-
-function normalizePixPhoneKey(value: string) {
-  const digits = value.replace(/\D/g, "")
-  if (!digits) return ""
-  if (value.includes("+")) return `+${digits}`
-  if (digits.startsWith("55")) return `+${digits}`
-  return `+55${digits}`
-}
-
 function paymentStatusLabel(status: OrderStatus | null) {
   switch (status) {
     case "paid":
@@ -86,63 +70,6 @@ function paymentStatusLabel(status: OrderStatus | null) {
     default:
       return "Status indisponivel"
   }
-}
-
-function tlv(id: string, value: string) {
-  return `${id}${value.length.toString().padStart(2, "0")}${value}`
-}
-
-function crc16Ccitt(payload: string) {
-  let crc = 0xffff
-  for (let i = 0; i < payload.length; i += 1) {
-    crc ^= payload.charCodeAt(i) << 8
-    for (let j = 0; j < 8; j += 1) {
-      crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1
-      crc &= 0xffff
-    }
-  }
-  return crc.toString(16).toUpperCase().padStart(4, "0")
-}
-
-function buildPixPayload({
-  key,
-  merchantName,
-  merchantCity,
-  amount,
-  txid,
-}: {
-  key: string
-  merchantName: string
-  merchantCity: string
-  amount: number
-  txid: string
-}) {
-  if (!key) return ""
-
-  const merchantAccountInfo =
-    tlv("00", "BR.GOV.BCB.PIX") +
-    tlv("01", key)
-
-  const name = sanitizePixText(merchantName, 25)
-  const city = sanitizePixText(merchantCity, 15)
-  const txidValue = sanitizePixText(txid, 25)
-  const amountValue = amount > 0 ? amount.toFixed(2) : ""
-
-  const payload = [
-    "000201",
-    tlv("26", merchantAccountInfo),
-    "52040000",
-    "5303986",
-    amountValue ? tlv("54", amountValue) : "",
-    "5802BR",
-    tlv("59", name),
-    tlv("60", city),
-    txidValue ? tlv("62", tlv("05", txidValue)) : "",
-  ].join("")
-
-  const payloadWithCrc = `${payload}6304`
-  const crc = crc16Ccitt(payloadWithCrc)
-  return `${payloadWithCrc}${crc}`
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? ""
@@ -389,19 +316,16 @@ function PaymentModal({
   const canConfirm = Boolean(orderId) && status === "pending_payment"
   const isReported = status === "payment_reported"
   const isPaid = status === "paid"
-  const txid = pixTxid ?? DEFAULT_PIX_TXID
-  const payload = normalizedPhone
-    ? buildPixPayload({
-        key: normalizedPhone,
-        merchantName: PIX_MERCHANT_NAME,
-        merchantCity: PIX_MERCHANT_CITY,
-        amount: total,
-        txid,
-      })
-    : ""
-  const qrUrl = payload
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(payload)}`
-    : ""
+  const payload =
+    normalizedPhone && pixTxid
+      ? buildPixPayload({
+          key: normalizedPhone,
+          merchantName: PIX_MERCHANT_NAME,
+          merchantCity: PIX_MERCHANT_CITY,
+          amount: total,
+          txid: pixTxid,
+        })
+      : ""
 
   useEffect(() => {
     setReference("")
@@ -458,15 +382,14 @@ function PaymentModal({
           <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
             Telefone de pagamento nao configurado. Fale com o administrador.
           </div>
+        ) : !pixTxid ? (
+          <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            TXID do pedido indisponivel. Atualize a pagina ou fale com o suporte.
+          </div>
         ) : (
           <div className="mt-6 flex flex-col items-center gap-4">
             <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={qrUrl}
-                alt="QR code PIX"
-                className="size-[260px]"
-              />
+              <PixQrCode payload={payload} />
             </div>
             <div className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3">
               <p className="text-xs uppercase tracking-wide text-zinc-400">Chave PIX</p>
@@ -1038,10 +961,6 @@ export default function HomePage() {
   const closeCheckout = useCallback(() => {
     setPaymentOpen(false)
     setPaymentError(null)
-    setOrderId(null)
-    setPixTxid(null)
-    setPaymentStatus(null)
-    setPaymentTotal(0)
   }, [])
 
   const confirmPayment = useCallback(async (reference: string) => {
@@ -1126,6 +1045,21 @@ export default function HomePage() {
           </button>
         )}
       </div>
+
+      {!isAdmin && !paymentOpen && orderId && paymentStatus === "pending_payment" && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-800">
+            Pedido #{orderId} aguardando pagamento PIX.
+          </p>
+          <button
+            type="button"
+            onClick={() => setPaymentOpen(true)}
+            className="rounded-lg bg-zinc-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-700"
+          >
+            Retomar pagamento
+          </button>
+        </div>
+      )}
 
       {/* Admin: stat cards */}
       {isAdmin && (
