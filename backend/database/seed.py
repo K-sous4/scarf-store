@@ -21,7 +21,7 @@ def seed_admin(db: Session) -> None:
     """
     existing = db.query(User).filter(User.role == "admin").first()
     if existing:
-        logger.info(f"✓ Admin user already exists: '{existing.username}'")
+        logger.info(f"✓ Usuário admin já existe: '{existing.username}'")
         return
 
     admin = User(
@@ -33,4 +33,4 @@ def seed_admin(db: Session) -> None:
     db.add(admin)
     db.commit()
     db.refresh(admin)
-    logger.info(f"✓ Admin user created: '{admin.username}' (id={admin.id})")
+    logger.info(f"✓ Usuário admin criado: '{admin.username}' (id={admin.id})")
