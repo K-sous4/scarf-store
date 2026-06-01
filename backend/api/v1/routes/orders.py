@@ -4,12 +4,12 @@ from decimal import Decimal
 from datetime import datetime
 
 from api.v1.dependencies import get_current_user, get_current_admin
-from api.v1.schemas.address import ShippingAddress
 from api.v1.schemas.address import (
     apply_shipping_to_order,
     shipping_address_from_user,
     user_has_complete_shipping_address,
 )
+from services.order_stock import recalculate_available, release_order_reservations
 from api.v1.schemas.order import (
     OrderCreateRequest,
     OrderConfirmPaymentRequest,
@@ -66,10 +66,6 @@ def _to_decimal(value: Decimal | int | float) -> Decimal:
 
 def _unit_price(product: Product) -> Decimal:
     return _to_decimal(product.discount_price or product.price)
-
-
-def _recalculate_available(product: Product) -> None:
-    product.available_stock = max(0, product.stock - product.reserved_stock)
 
 
 def _build_pix_txid(order_id: int) -> str:
@@ -138,7 +134,7 @@ async def create_order(
     line_items: list[OrderItem] = []
 
     for product in products:
-        _recalculate_available(product)
+        recalculate_available(product)
         qty = items_map[product.id]
         if not product.is_active:
             raise HTTPException(
@@ -189,7 +185,7 @@ async def create_order(
     for product in products:
         qty = items_map[product.id]
         product.reserved_stock += qty
-        _recalculate_available(product)
+        recalculate_available(product)
 
     db.commit()
     db.refresh(order)
@@ -231,15 +227,6 @@ async def list_all_orders(
     return query.order_by(Order.created_at.desc()).all()
 
 
-def _release_order_reservations(order: Order, db: Session) -> None:
-    for item in order.items:
-        product = db.query(Product).filter(Product.id == item.product_id).first()
-        if not product:
-            continue
-        product.reserved_stock = max(0, product.reserved_stock - item.quantity)
-        _recalculate_available(product)
-
-
 @router.post("/{order_id}/cancel", response_model=OrderResponse)
 async def cancel_order(
     order_id: int,
@@ -263,7 +250,7 @@ async def cancel_order(
     if order.status == ORDER_STATUS_CANCELLED:
         return order
 
-    _release_order_reservations(order, db)
+    release_order_reservations(order, db)
     order.status = ORDER_STATUS_CANCELLED
     db.commit()
     db.refresh(order)
@@ -345,7 +332,7 @@ async def mark_paid(
             )
         product.stock = max(0, product.stock - item.quantity)
         product.reserved_stock = max(0, product.reserved_stock - item.quantity)
-        _recalculate_available(product)
+        recalculate_available(product)
 
     order.status = ORDER_STATUS_PAID
     order.paid_at = datetime.utcnow()

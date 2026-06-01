@@ -37,3 +37,7 @@ SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_FROM = os.getenv("SMTP_FROM", "")
 SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() in ("1", "true", "yes")
+
+# Pedidos pendentes (pagamento nao concluido)
+PENDING_ORDER_EXPIRE_HOURS = int(os.getenv("PENDING_ORDER_EXPIRE_HOURS", "48"))
+ORDER_EXPIRY_CHECK_MINUTES = int(os.getenv("ORDER_EXPIRY_CHECK_MINUTES", "15"))

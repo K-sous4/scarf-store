@@ -236,13 +236,18 @@ function SignUpModal({ onClose }: { onClose: () => void }) {
       setError("A senha deve ter pelo menos 6 caracteres.")
       return
     }
+    const email = form.email.trim()
+    if (!email) {
+      setError("Informe um e-mail valido para criar a conta e recuperar a senha.")
+      return
+    }
     setLoading(true)
     setError(null)
     try {
       await signUp({
-        username: form.username,
+        username: form.username.trim(),
         password: form.password,
-        email: form.email || undefined,
+        email,
       })
       router.push("/home")
     } catch (err) {
@@ -302,10 +307,11 @@ function SignUpModal({ onClose }: { onClose: () => void }) {
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-zinc-700">
-              E-mail <span className="text-zinc-400">(opcional)</span>
+              E-mail <span className="text-rose-500">*</span>
             </label>
             <input
               type="email"
+              required
               autoComplete="email"
               value={form.email}
               onChange={(e) => set("email", e.target.value)}
