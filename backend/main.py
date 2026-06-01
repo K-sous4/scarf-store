@@ -16,6 +16,7 @@ from database.db import create_tables, SessionLocal
 from database.seed import seed_admin
 from database.mockup import seed_mockup
 from middlewares.session_refresh import SessionRefreshMiddleware
+from middlewares.session_state import SessionStateMiddleware
 from middlewares.logging import AuditLoggingMiddleware
 
 
@@ -93,8 +94,9 @@ else:
 
 # Add middlewares in the correct order (added REVERSE - last added is executed first)
 # Order of execution: AuditLogging -> SessionRefresh -> CORS
-app.add_middleware(AuditLoggingMiddleware)  # Audit logging (outermost)
-app.add_middleware(SessionRefreshMiddleware)  # Refreshes session cookies
+app.add_middleware(SessionStateMiddleware)
+app.add_middleware(AuditLoggingMiddleware)
+app.add_middleware(SessionRefreshMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
