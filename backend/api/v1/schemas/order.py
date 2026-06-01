@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, field_serializer
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List, Literal
+from api.v1.schemas.address import ShippingAddress
 
 OrderStatus = Literal["pending_payment", "payment_reported", "paid", "delivered", "cancelled"]
 
@@ -16,6 +17,7 @@ class OrderCreateRequest(BaseModel):
     payment_method: Literal["pix"] = "pix"
     accept_terms: bool = False
     terms_version: str = Field(..., min_length=1, max_length=20)
+    shipping_address: ShippingAddress
 
 
 class OrderMarkDeliveredRequest(BaseModel):
@@ -75,6 +77,16 @@ class OrderResponse(BaseModel):
     terms_accepted_at: Optional[datetime] = None
     delivered_at: Optional[datetime] = None
     delivery_note: Optional[str] = None
+    shipping_recipient_name: Optional[str] = None
+    shipping_phone: Optional[str] = None
+    shipping_postal_code: Optional[str] = None
+    shipping_street: Optional[str] = None
+    shipping_number: Optional[str] = None
+    shipping_complement: Optional[str] = None
+    shipping_neighborhood: Optional[str] = None
+    shipping_city: Optional[str] = None
+    shipping_state: Optional[str] = None
+    shipping_address_formatted: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     items: List[OrderItemResponse]

@@ -4,6 +4,8 @@ from decimal import Decimal
 from datetime import datetime
 
 from api.v1.dependencies import get_current_user, get_current_admin
+from api.v1.schemas.address import ShippingAddress
+from api.v1.schemas.address import apply_shipping_to_order
 from api.v1.schemas.order import (
     OrderCreateRequest,
     OrderConfirmPaymentRequest,
@@ -164,6 +166,7 @@ async def create_order(
         terms_version=expected_terms_version,
         terms_accepted_at=datetime.utcnow(),
     )
+    apply_shipping_to_order(order, payload.shipping_address)
     db.add(order)
     db.flush()
 

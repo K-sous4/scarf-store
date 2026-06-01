@@ -11,6 +11,17 @@ class Order(Base):
     buyer_username = Column(String(255), nullable=True, index=True)
     buyer_email = Column(String(255), nullable=True)
 
+    shipping_recipient_name = Column(String(120), nullable=True)
+    shipping_phone = Column(String(20), nullable=True)
+    shipping_postal_code = Column(String(9), nullable=True)
+    shipping_street = Column(String(200), nullable=True)
+    shipping_number = Column(String(20), nullable=True)
+    shipping_complement = Column(String(80), nullable=True)
+    shipping_neighborhood = Column(String(100), nullable=True)
+    shipping_city = Column(String(100), nullable=True)
+    shipping_state = Column(String(2), nullable=True)
+    shipping_address_formatted = Column(String(500), nullable=True)
+
     status = Column(String(30), nullable=False, default="pending_payment", index=True)
     payment_method = Column(String(30), nullable=False, default="pix")
     total_amount = Column(DECIMAL(10, 2), nullable=False)

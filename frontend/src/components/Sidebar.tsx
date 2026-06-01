@@ -64,6 +64,15 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    label: "Meu perfil",
+    href: "/profile",
+    icon: (
+      <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      </svg>
+    ),
+  },
+  {
     label: "Minhas compras",
     href: "/purchases",
     userOnly: true,
@@ -123,7 +132,10 @@ export function Sidebar() {
 
       {/* User footer */}
       <div className="border-t border-zinc-200 p-3">
-        <div className="flex items-center gap-2.5 rounded-lg px-3 py-2">
+        <Link
+          href="/profile"
+          className="flex items-center gap-2.5 rounded-lg px-3 py-2 transition-colors hover:bg-zinc-50"
+        >
           <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-xs font-semibold text-zinc-600 uppercase">
             {user?.username?.[0]}
           </div>
@@ -131,7 +143,7 @@ export function Sidebar() {
             <span className="truncate text-sm font-medium text-zinc-900">{user?.username}</span>
             <span className="text-xs text-zinc-400 capitalize">{user?.role}</span>
           </div>
-        </div>
+        </Link>
         <button
           onClick={logout}
           className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-900"

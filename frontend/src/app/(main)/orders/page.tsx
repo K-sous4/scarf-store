@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { api, ApiError } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
+import { formatShippingLine } from "@/types/shipping"
 
 interface OrderUser {
   id: number
@@ -21,6 +22,8 @@ interface OrderItem {
 
 type OrderStatus = "pending_payment" | "payment_reported" | "paid" | "delivered" | "cancelled"
 
+import { formatShippingLine } from "@/types/shipping"
+
 interface Order {
   id: number
   user_id: number
@@ -35,6 +38,12 @@ interface Order {
   terms_version?: string | null
   delivery_note?: string | null
   delivered_at?: string | null
+  shipping_address_formatted?: string | null
+  shipping_street?: string | null
+  shipping_number?: string | null
+  shipping_city?: string | null
+  shipping_state?: string | null
+  shipping_postal_code?: string | null
   user?: OrderUser
   items: OrderItem[]
 }
@@ -186,6 +195,15 @@ export default function OrdersPage() {
                   <p className="text-xs text-zinc-600 break-all">{buyer.email}</p>
                 )}
               </div>
+
+              {formatShippingLine(order) && (
+                <div className="mt-3 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+                    Endereço de entrega
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-800">{formatShippingLine(order)}</p>
+                </div>
+              )}
 
               <div className="mt-4 space-y-3">
                 {order.items.map((item) => (

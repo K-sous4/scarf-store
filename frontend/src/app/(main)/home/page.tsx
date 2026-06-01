@@ -1,10 +1,19 @@
 "use client"
 
+import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { PixQrCode } from "@/components/PixQrCode"
 import { PurchaseTermsModal } from "@/components/PurchaseTermsModal"
+import { ShippingAddressForm } from "@/components/ShippingAddressForm"
+import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { usePurchaseTerms } from "@/lib/use-purchase-terms"
+import {
+  isShippingComplete,
+  profileToShipping,
+  type ShippingAddress,
+  type UserProfile,
+} from "@/types/shipping"
 import {
   buildPixPayload,
   normalizePixPhoneKey,
@@ -122,6 +131,8 @@ function CartDrawer({
   onTermsAcceptedChange,
   onOpenTerms,
   termsSummary,
+  shippingAddress,
+  onShippingAddressChange,
 }: {
   items: CartItem[]
   onClose: () => void
@@ -134,7 +145,10 @@ function CartDrawer({
   onTermsAcceptedChange: (value: boolean) => void
   onOpenTerms: () => void
   termsSummary: string
+  shippingAddress: ShippingAddress
+  onShippingAddressChange: (value: ShippingAddress) => void
 }) {
+  const shippingReady = isShippingComplete(shippingAddress)
   const total = items.reduce((s, i) => s + unitPrice(i.product) * i.qty, 0)
   const totalItems = items.reduce((s, i) => s + i.qty, 0)
 
@@ -146,7 +160,7 @@ function CartDrawer({
         onClick={onClose}
       />
       {/* Panel */}
-      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col bg-white shadow-2xl">
+      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
         {/* Checkout stock errors */}
         {items.some((i) => i.qty > i.product.available_stock) && (
           <div className="mx-5 mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
@@ -271,7 +285,21 @@ function CartDrawer({
 
         {/* Footer */}
         {items.length > 0 && (
-          <div className="border-t border-zinc-100 px-5 py-4 space-y-3">
+          <div className="border-t border-zinc-100 px-5 py-4 space-y-3 max-h-[55vh] overflow-y-auto">
+            <ShippingAddressForm
+              compact
+              value={shippingAddress}
+              onChange={onShippingAddressChange}
+            />
+            {!shippingReady && (
+              <p className="text-xs text-amber-700">
+                Preencha o endereço de entrega ou{" "}
+                <Link href="/profile" className="font-semibold underline">
+                  salve no seu perfil
+                </Link>
+                .
+              </p>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-sm text-zinc-500">Total</span>
               <span className="text-base font-bold text-zinc-900">{formatPrice(total)}</span>
@@ -304,6 +332,7 @@ function CartDrawer({
               disabled={
                 checkoutLoading ||
                 !termsAccepted ||
+                !shippingReady ||
                 items.some((i) => i.qty > i.product.available_stock)
               }
               onClick={() => onCheckout(total)}
@@ -886,7 +915,26 @@ export default function HomePage() {
   const [confirmingPayment, setConfirmingPayment] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [termsModalOpen, setTermsModalOpen] = useState(false)
+  const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
+    recipient_name: "",
+    phone: "",
+    postal_code: "",
+    street: "",
+    number: "",
+    complement: "",
+    neighborhood: "",
+    city: "",
+    state: "",
+  })
   const { terms: purchaseTerms } = usePurchaseTerms()
+
+  useEffect(() => {
+    if (isAdmin || !user) return
+    api
+      .get<UserProfile>("/users/me")
+      .then((profile) => setShippingAddress(profileToShipping(profile)))
+      .catch(() => {})
+  }, [isAdmin, user])
 
   useEffect(() => {
     setTermsAccepted(false)
@@ -975,6 +1023,10 @@ export default function HomePage() {
 
   const openCheckout = useCallback(async (total: number) => {
     if (cartItems.length === 0) return
+    if (!isShippingComplete(shippingAddress)) {
+      showToast("Preencha o endereco de entrega para continuar.")
+      return
+    }
     setCheckoutLoading(true)
     try {
       setPaymentError(null)
@@ -1028,6 +1080,7 @@ export default function HomePage() {
           })),
           accept_terms: true,
           terms_version: purchaseTerms.version,
+          shipping_address: shippingAddress,
         }),
       })
 
@@ -1049,7 +1102,7 @@ export default function HomePage() {
     } finally {
       setCheckoutLoading(false)
     }
-  }, [apiBase, cartItems, fetchPaymentPhone, purchaseTerms.version, showToast])
+  }, [apiBase, cartItems, fetchPaymentPhone, purchaseTerms.version, shippingAddress, showToast])
 
   const closeCheckout = useCallback(() => {
     setPaymentOpen(false)
@@ -1256,6 +1309,8 @@ export default function HomePage() {
           onTermsAcceptedChange={setTermsAccepted}
           onOpenTerms={() => setTermsModalOpen(true)}
           termsSummary={purchaseTerms.summary}
+          shippingAddress={shippingAddress}
+          onShippingAddressChange={setShippingAddress}
         />
       )}
       <PurchaseTermsModal
