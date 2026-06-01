@@ -917,6 +917,36 @@ export default function HomePage() {
     setCheckoutLoading(true)
     try {
       setPaymentError(null)
+
+      const stockResponse = await fetch(`${apiBase}/products/?limit=500`, {
+        credentials: "include",
+      })
+      if (!stockResponse.ok) {
+        showToast("Nao foi possivel validar o estoque. Tente novamente.")
+        return
+      }
+      const stockData = await stockResponse.json() as { products: Product[] } | Product[]
+      const stockList = Array.isArray(stockData)
+        ? stockData
+        : (stockData as { products: Product[] }).products ?? []
+      const stockById = new Map(stockList.map((p) => [p.id, p]))
+
+      const refreshedCart = cartItems
+        .map((item) => {
+          const fresh = stockById.get(item.product.id)
+          if (!fresh || !fresh.is_active) return null
+          const qty = Math.min(item.qty, fresh.available_stock)
+          if (qty <= 0) return null
+          return { product: fresh, qty }
+        })
+        .filter((item): item is CartItem => item !== null)
+
+      setCartItems(refreshedCart)
+      if (refreshedCart.length === 0) {
+        showToast("Itens do carrinho indisponiveis no estoque.")
+        return
+      }
+
       const phone = await fetchPaymentPhone()
       if (!phone) {
         showToast("Pagamento PIX nao configurado. Fale com o administrador.")
@@ -931,7 +961,7 @@ export default function HomePage() {
         },
         credentials: "include",
         body: JSON.stringify({
-          items: cartItems.map((item) => ({
+          items: refreshedCart.map((item) => ({
             product_id: item.product.id,
             quantity: item.qty,
           })),
@@ -946,7 +976,7 @@ export default function HomePage() {
       const data = await response.json() as OrderResponse
       setOrderId(data.id)
       setPaymentStatus(data.status as OrderStatus)
-      setPaymentTotal(data.total_amount ?? total)
+      setPaymentTotal(Number(data.total_amount) || total)
       setPixTxid(data.pix_txid ?? null)
       setCartItems([])
       setCartOpen(false)
