@@ -91,6 +91,22 @@ class SessionManager:
         result = self.redis_client.expire(f"session:{session_id}", self.session_ttl)
         return result > 0
 
+    def invalidate_sessions_for_user(self, user_id: int) -> int:
+        """Remove all Redis sessions belonging to a user."""
+        removed = 0
+        for key in self.redis_client.scan_iter("session:*"):
+            raw = self.redis_client.get(key)
+            if not raw:
+                continue
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if data.get("user_id") == user_id:
+                self.redis_client.delete(key)
+                removed += 1
+        return removed
+
     def rotate_session(self, old_session_id: str, user_id: int, username: str, role: str) -> Optional[str]:
         """
         Rotate (renew) a session by creating a new session ID while keeping user data.

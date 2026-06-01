@@ -4,6 +4,7 @@ from models.user import User
 from database.db import get_db
 from api.v1.dependencies import get_current_user, get_current_admin
 from utils.security import hash_password
+from services.session import session_manager
 from pydantic import BaseModel, EmailStr
 from typing import Literal
 
@@ -172,14 +173,19 @@ async def update_user(
             raise HTTPException(status_code=400, detail="Email já está em uso")
         user.email = request.email
 
+    security_sensitive = False
     if request.password:
         user.hashed_password = hash_password(request.password)
+        security_sensitive = True
 
     if request.role:
         user.role = request.role
+        security_sensitive = True
 
     db.commit()
     db.refresh(user)
+    if security_sensitive:
+        session_manager.invalidate_sessions_for_user(user.id)
     return user
 
 
@@ -197,5 +203,6 @@ async def delete_user(
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     if user.role == "admin":
         raise HTTPException(status_code=400, detail="Não é possível deletar um administrador")
+    session_manager.invalidate_sessions_for_user(user.id)
     db.delete(user)
     db.commit()
