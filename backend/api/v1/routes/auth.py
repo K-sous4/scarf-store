@@ -1,9 +1,12 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Request, Response
+from fastapi import APIRouter, HTTPException, status, Depends, Request, Response, Query
 from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from models.user import User
 from utils.security import hash_password, verify_password
+from services.password_reset import password_reset_service
+from services.email_service import build_password_reset_url, send_password_reset_email
 from utils.cookies import (
     set_session_cookie,
     set_user_role_cookie,
@@ -43,6 +46,92 @@ class ProfileResponse(BaseModel):
     id: int
     username: str
     role: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordResponse(BaseModel):
+    message: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(..., min_length=20, max_length=128)
+    new_password: str = Field(..., min_length=6, max_length=128)
+
+
+class ResetPasswordValidateResponse(BaseModel):
+    valid: bool
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
+FORGOT_PASSWORD_MESSAGE = (
+    "Se o e-mail estiver cadastrado, enviaremos instrucoes para redefinir a senha."
+)
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(
+    request: ForgotPasswordRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Solicita redefinicao de senha por e-mail. Resposta generica para evitar enumeracao.
+    """
+    ip_address = http_request.client.host if http_request.client else None
+    email = request.email.strip().lower()
+
+    if not password_reset_service.is_rate_limited(email, ip_address):
+        user = (
+            db.query(User)
+            .filter(func.lower(User.email) == email, User.email.isnot(None))
+            .first()
+        )
+        if user:
+            token = password_reset_service.create_token(user.id)
+            reset_url = build_password_reset_url(token)
+            send_password_reset_email(user.email, reset_url)
+
+    return {"message": FORGOT_PASSWORD_MESSAGE}
+
+
+@router.get("/reset-password/validate", response_model=ResetPasswordValidateResponse)
+async def validate_reset_password_token(token: str = Query(..., min_length=20, max_length=128)):
+    user_id = password_reset_service.peek_user_id(token)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Link de recuperacao invalido ou expirado",
+        )
+    return {"valid": True}
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    user_id = password_reset_service.consume_token(request.token)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Link de recuperacao invalido ou expirado",
+        )
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Link de recuperacao invalido ou expirado",
+        )
+
+    user.hashed_password = hash_password(request.new_password)
+    db.commit()
+    session_manager.invalidate_sessions_for_user(user.id)
+
+    return {"message": "Senha redefinida com sucesso. Faca login com a nova senha."}
 
 
 @router.post("/sign-in", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)

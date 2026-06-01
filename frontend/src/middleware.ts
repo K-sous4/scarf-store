@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 // Rotas públicas por prefixo (ex: /login)
-const PUBLIC_PREFIXES = ["/login"]
+const PUBLIC_PREFIXES = ["/login", "/forgot-password", "/reset-password"]
 
 // Rotas públicas por correspondência exata
 const PUBLIC_EXACT = ["/"]

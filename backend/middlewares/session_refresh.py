@@ -8,6 +8,9 @@ SKIP_REFRESH_PATHS = {
     "/api/v1/auth/login",
     "/api/v1/auth/sign-in",
     "/api/v1/auth/logout",
+    "/api/v1/auth/forgot-password",
+    "/api/v1/auth/reset-password",
+    "/api/v1/auth/reset-password/validate",
     "/ping",
     "/health",
 }

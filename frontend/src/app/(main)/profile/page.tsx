@@ -180,6 +180,9 @@ export default function ProfilePage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="seu@email.com"
             />
+            <span className="mt-1 block text-xs text-zinc-400">
+              Necessario para recuperar a senha caso voce esqueca.
+            </span>
           </label>
         </section>
 
