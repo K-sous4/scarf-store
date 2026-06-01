@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Request, Response
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from models.user import User
 from utils.security import hash_password, verify_password
 from utils.cookies import (
@@ -73,7 +74,14 @@ async def sign_in(request: SignUpRequest, response: Response, db: Session = Depe
     )
 
     db.add(new_user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Registration failed",
+        )
     db.refresh(new_user)
 
     session_id = session_manager.create_session(
@@ -179,7 +187,6 @@ async def get_profile(http_request: Request, response: Response, db: Session = D
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    session_manager.refresh_session(session_id)
     refresh_session_cookie(response, session_id)
     set_user_role_cookie(response, user.role)
 
