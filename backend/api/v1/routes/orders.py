@@ -265,16 +265,31 @@ async def mark_paid(
     if order.status == ORDER_STATUS_PAID:
         return order
 
+    if order.status != ORDER_STATUS_REPORTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Pedido deve ter pagamento informado antes da confirmacao",
+        )
+
     for item in order.items:
         product = db.query(Product).filter(Product.id == item.product_id).first()
         if not product:
-            continue
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Produto {item.product_id} nao encontrado para baixa de estoque",
+            )
+        if product.reserved_stock < item.quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Reserva insuficiente para {product.name}",
+            )
         product.stock = max(0, product.stock - item.quantity)
         product.reserved_stock = max(0, product.reserved_stock - item.quantity)
         _recalculate_available(product)
 
     order.status = ORDER_STATUS_PAID
     order.paid_at = datetime.utcnow()
+    order.paid_by_admin_id = current_admin.id
 
     db.commit()
     db.refresh(order)

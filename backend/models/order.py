@@ -19,6 +19,7 @@ class Order(Base):
 
     payment_reported_at = Column(DateTime, nullable=True)
     paid_at = Column(DateTime, nullable=True)
+    paid_by_admin_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
