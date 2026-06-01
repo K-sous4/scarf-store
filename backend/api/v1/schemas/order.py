@@ -48,6 +48,7 @@ class OrderResponse(BaseModel):
     payment_method: str
     total_amount: Decimal
     pix_txid: Optional[str] = None
+    pix_key: Optional[str] = None
     payment_reference: Optional[str] = None
     payment_reported_at: Optional[datetime]
     paid_at: Optional[datetime]
