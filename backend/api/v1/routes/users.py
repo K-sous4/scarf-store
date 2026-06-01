@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from models.user import User
 from database.db import get_db
 from api.v1.dependencies import get_current_user, get_current_admin
+from api.v1.schemas.address import user_has_complete_shipping_address
 import re
 
 from utils.security import hash_password, verify_password
@@ -27,9 +28,17 @@ class UserProfileResponse(BaseModel):
     neighborhood: str | None = None
     city: str | None = None
     state: str | None = None
+    has_shipping_address: bool = False
 
     class Config:
         from_attributes = True
+
+
+def _profile_response(user: User) -> UserProfileResponse:
+    data = UserProfileResponse.model_validate(user)
+    return data.model_copy(
+        update={"has_shipping_address": user_has_complete_shipping_address(user)}
+    )
 
 
 class UserMeUpdateRequest(BaseModel):
@@ -88,7 +97,7 @@ async def get_my_profile(current_user: User = Depends(get_current_user)):
     """
     Retorna o perfil do usuário autenticado
     """
-    return current_user
+    return _profile_response(current_user)
 
 
 @router.put("/me", response_model=UserProfileResponse)
@@ -168,7 +177,7 @@ async def update_my_profile(
     db.refresh(current_user)
     if security_sensitive:
         session_manager.invalidate_sessions_for_user(current_user.id)
-    return current_user
+    return _profile_response(current_user)
 
 
 # ============= ADMIN =============

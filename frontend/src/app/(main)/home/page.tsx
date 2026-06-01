@@ -4,12 +4,12 @@ import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { PixQrCode } from "@/components/PixQrCode"
 import { PurchaseTermsModal } from "@/components/PurchaseTermsModal"
-import { ShippingAddressForm } from "@/components/ShippingAddressForm"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { usePurchaseTerms } from "@/lib/use-purchase-terms"
 import {
-  isShippingComplete,
+  formatShippingAddressSummary,
+  profileHasShippingAddress,
   profileToShipping,
   type ShippingAddress,
   type UserProfile,
@@ -132,7 +132,7 @@ function CartDrawer({
   onOpenTerms,
   termsSummary,
   shippingAddress,
-  onShippingAddressChange,
+  hasProfileAddress,
 }: {
   items: CartItem[]
   onClose: () => void
@@ -146,9 +146,8 @@ function CartDrawer({
   onOpenTerms: () => void
   termsSummary: string
   shippingAddress: ShippingAddress
-  onShippingAddressChange: (value: ShippingAddress) => void
+  hasProfileAddress: boolean
 }) {
-  const shippingReady = isShippingComplete(shippingAddress)
   const total = items.reduce((s, i) => s + unitPrice(i.product) * i.qty, 0)
   const totalItems = items.reduce((s, i) => s + i.qty, 0)
 
@@ -286,20 +285,22 @@ function CartDrawer({
         {/* Footer */}
         {items.length > 0 && (
           <div className="border-t border-zinc-100 px-5 py-4 space-y-3 max-h-[55vh] overflow-y-auto">
-            <ShippingAddressForm
-              compact
-              value={shippingAddress}
-              onChange={onShippingAddressChange}
-            />
-            {!shippingReady && (
-              <p className="text-xs text-amber-700">
-                Preencha o endereço de entrega ou{" "}
-                <Link href="/profile" className="font-semibold underline">
-                  salve no seu perfil
-                </Link>
-                .
-              </p>
-            )}
+            <div className="rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-3">
+              <p className="text-xs font-medium text-zinc-500">Endereço de entrega (perfil)</p>
+              {hasProfileAddress ? (
+                <p className="mt-1 text-xs text-zinc-800 leading-relaxed">
+                  {formatShippingAddressSummary(shippingAddress)}
+                </p>
+              ) : (
+                <p className="mt-1 text-xs text-amber-700">
+                  Cadastre um endereço completo em{" "}
+                  <Link href="/profile" className="font-semibold underline">
+                    Meu perfil
+                  </Link>{" "}
+                  para finalizar a compra.
+                </p>
+              )}
+            </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-zinc-500">Total</span>
               <span className="text-base font-bold text-zinc-900">{formatPrice(total)}</span>
@@ -332,7 +333,7 @@ function CartDrawer({
               disabled={
                 checkoutLoading ||
                 !termsAccepted ||
-                !shippingReady ||
+                !hasProfileAddress ||
                 items.some((i) => i.qty > i.product.available_stock)
               }
               onClick={() => onCheckout(total)}
@@ -926,15 +927,31 @@ export default function HomePage() {
     city: "",
     state: "",
   })
+  const [hasProfileAddress, setHasProfileAddress] = useState(false)
   const { terms: purchaseTerms } = usePurchaseTerms()
+
+  const loadUserProfile = useCallback(async () => {
+    try {
+      const profile = await api.get<UserProfile>("/users/me")
+      setShippingAddress(profileToShipping(profile))
+      setHasProfileAddress(profileHasShippingAddress(profile))
+      return profile
+    } catch {
+      setHasProfileAddress(false)
+      return null
+    }
+  }, [])
 
   useEffect(() => {
     if (isAdmin || !user) return
-    api
-      .get<UserProfile>("/users/me")
-      .then((profile) => setShippingAddress(profileToShipping(profile)))
-      .catch(() => {})
-  }, [isAdmin, user])
+    loadUserProfile()
+  }, [isAdmin, user, loadUserProfile])
+
+  useEffect(() => {
+    if (cartOpen && !isAdmin && user) {
+      loadUserProfile()
+    }
+  }, [cartOpen, isAdmin, user, loadUserProfile])
 
   useEffect(() => {
     setTermsAccepted(false)
@@ -1023,8 +1040,9 @@ export default function HomePage() {
 
   const openCheckout = useCallback(async (total: number) => {
     if (cartItems.length === 0) return
-    if (!isShippingComplete(shippingAddress)) {
-      showToast("Preencha o endereco de entrega para continuar.")
+    const profile = await loadUserProfile()
+    if (!profile || !profileHasShippingAddress(profile)) {
+      showToast("Cadastre um endereco completo em Meu perfil antes de comprar.")
       return
     }
     setCheckoutLoading(true)
@@ -1080,7 +1098,6 @@ export default function HomePage() {
           })),
           accept_terms: true,
           terms_version: purchaseTerms.version,
-          shipping_address: shippingAddress,
         }),
       })
 
@@ -1102,7 +1119,7 @@ export default function HomePage() {
     } finally {
       setCheckoutLoading(false)
     }
-  }, [apiBase, cartItems, fetchPaymentPhone, purchaseTerms.version, shippingAddress, showToast])
+  }, [apiBase, cartItems, fetchPaymentPhone, loadUserProfile, purchaseTerms.version, showToast])
 
   const closeCheckout = useCallback(() => {
     setPaymentOpen(false)
@@ -1191,6 +1208,16 @@ export default function HomePage() {
           </button>
         )}
       </div>
+
+      {!isAdmin && !hasProfileAddress && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Para comprar, cadastre seu endereço de entrega em{" "}
+          <Link href="/profile" className="font-semibold underline">
+            Meu perfil
+          </Link>
+          .
+        </div>
+      )}
 
       {!isAdmin && !paymentOpen && orderId && paymentStatus === "pending_payment" && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -1310,7 +1337,7 @@ export default function HomePage() {
           onOpenTerms={() => setTermsModalOpen(true)}
           termsSummary={purchaseTerms.summary}
           shippingAddress={shippingAddress}
-          onShippingAddressChange={setShippingAddress}
+          hasProfileAddress={hasProfileAddress}
         />
       )}
       <PurchaseTermsModal

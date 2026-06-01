@@ -50,6 +50,40 @@ class ShippingAddress(BaseModel):
         return ", ".join(p for p in parts if p)
 
 
+def user_has_complete_shipping_address(user) -> bool:
+    if not user:
+        return False
+    postal_digits = re.sub(r"\D", "", user.postal_code or "")
+    state = (user.state or "").strip().upper()
+    phone_digits = re.sub(r"\D", "", user.phone or "")
+    recipient = (user.full_name or user.username or "").strip()
+    return bool(
+        recipient
+        and len(phone_digits) >= 10
+        and len(postal_digits) == 8
+        and (user.street or "").strip()
+        and (user.number or "").strip()
+        and (user.neighborhood or "").strip()
+        and (user.city or "").strip()
+        and len(state) == 2
+        and state.isalpha()
+    )
+
+
+def shipping_address_from_user(user) -> ShippingAddress:
+    return ShippingAddress(
+        recipient_name=(user.full_name or user.username or "").strip(),
+        phone=(user.phone or "").strip(),
+        postal_code=user.postal_code or "",
+        street=(user.street or "").strip(),
+        number=(user.number or "").strip(),
+        complement=(user.complement or "").strip() or None,
+        neighborhood=(user.neighborhood or "").strip(),
+        city=(user.city or "").strip(),
+        state=(user.state or "").strip().upper(),
+    )
+
+
 def apply_shipping_to_order(order, addr: ShippingAddress) -> None:
     order.shipping_recipient_name = addr.recipient_name
     order.shipping_phone = addr.phone

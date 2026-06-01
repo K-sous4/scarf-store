@@ -5,7 +5,11 @@ from datetime import datetime
 
 from api.v1.dependencies import get_current_user, get_current_admin
 from api.v1.schemas.address import ShippingAddress
-from api.v1.schemas.address import apply_shipping_to_order
+from api.v1.schemas.address import (
+    apply_shipping_to_order,
+    shipping_address_from_user,
+    user_has_complete_shipping_address,
+)
 from api.v1.schemas.order import (
     OrderCreateRequest,
     OrderConfirmPaymentRequest,
@@ -99,6 +103,12 @@ async def create_order(
             detail="Versao dos termos desatualizada. Atualize a pagina e tente novamente",
         )
 
+    if not user_has_complete_shipping_address(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cadastre um endereco de entrega completo no seu perfil antes de comprar",
+        )
+
     if not payload.items:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe ao menos um item")
 
@@ -166,7 +176,7 @@ async def create_order(
         terms_version=expected_terms_version,
         terms_accepted_at=datetime.utcnow(),
     )
-    apply_shipping_to_order(order, payload.shipping_address)
+    apply_shipping_to_order(order, shipping_address_from_user(current_user))
     db.add(order)
     db.flush()
 

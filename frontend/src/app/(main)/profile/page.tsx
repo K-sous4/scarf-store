@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth-context"
 import {
   EMPTY_SHIPPING,
   isShippingComplete,
+  profileHasShippingAddress,
   profileToShipping,
   type ShippingAddress,
   type UserProfile,
@@ -52,6 +53,7 @@ export default function ProfilePage() {
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [shipping, setShipping] = useState<ShippingAddress>(EMPTY_SHIPPING)
+  const [hasProfileAddress, setHasProfileAddress] = useState(false)
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
 
@@ -63,6 +65,7 @@ export default function ProfilePage() {
       setUsername(data.username)
       setEmail(data.email ?? "")
       setShipping(profileToShipping(data))
+      setHasProfileAddress(profileHasShippingAddress(data))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Nao foi possivel carregar o perfil")
     } finally {
@@ -109,7 +112,8 @@ export default function ProfilePage() {
         body.current_password = currentPassword
         body.new_password = newPassword
       }
-      await api.put<UserProfile>("/users/me", body)
+      const updated = await api.put<UserProfile>("/users/me", body)
+      setHasProfileAddress(profileHasShippingAddress(updated))
 
       if (changingPassword) {
         setCurrentPassword("")
@@ -188,7 +192,11 @@ export default function ProfilePage() {
 
         <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
           <ShippingAddressForm value={shipping} onChange={setShipping} />
-          {!isShippingComplete(shipping) && (
+          {hasProfileAddress ? (
+            <p className="mt-3 text-xs text-emerald-700">
+              Endereço completo — você já pode finalizar compras na loja.
+            </p>
+          ) : (
             <p className="mt-3 text-xs text-amber-700">
               Preencha o endereço completo para finalizar compras com entrega.
             </p>

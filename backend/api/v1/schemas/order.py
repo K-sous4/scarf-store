@@ -17,7 +17,7 @@ class OrderCreateRequest(BaseModel):
     payment_method: Literal["pix"] = "pix"
     accept_terms: bool = False
     terms_version: str = Field(..., min_length=1, max_length=20)
-    shipping_address: ShippingAddress
+    shipping_address: Optional[ShippingAddress] = None
 
 
 class OrderMarkDeliveredRequest(BaseModel):

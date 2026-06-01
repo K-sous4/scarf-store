@@ -24,6 +24,14 @@ export interface UserProfile {
   neighborhood: string | null
   city: string | null
   state: string | null
+  has_shipping_address?: boolean
+}
+
+export function profileHasShippingAddress(profile: UserProfile): boolean {
+  if (profile.has_shipping_address !== undefined) {
+    return profile.has_shipping_address
+  }
+  return isShippingComplete(profileToShipping(profile))
 }
 
 export const EMPTY_SHIPPING: ShippingAddress = {
@@ -83,4 +91,17 @@ export function formatShippingLine(order: {
     order.shipping_postal_code ? `CEP ${order.shipping_postal_code}` : null,
   ].filter(Boolean)
   return parts.length ? parts.join(" · ") : null
+}
+
+export function formatShippingAddressSummary(address: ShippingAddress): string {
+  const parts = [
+    address.recipient_name,
+    `${address.street}, ${address.number}`,
+    address.complement,
+    address.neighborhood,
+    `${address.city} - ${address.state}`,
+    `CEP ${address.postal_code}`,
+    `Tel: ${address.phone}`,
+  ].filter(Boolean)
+  return parts.join(" · ")
 }
