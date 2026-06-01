@@ -62,11 +62,12 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        BACKEND_URL: http://backend:8000
+        NEXT_PUBLIC_API_URL: /api/v1
     container_name: scarf_frontend
     restart: unless-stopped
     profiles: ["app"]
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
     ports:
       - "3000:3000"
     depends_on:
