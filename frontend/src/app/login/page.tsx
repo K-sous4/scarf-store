@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { ApiError } from "@/lib/api"
+import { safeRedirectPath } from "@/lib/safe-redirect"
 
 function LoginForm() {
   const { login } = useAuth()
@@ -22,8 +23,7 @@ function LoginForm() {
 
     try {
       await login({ username, password })
-      const next = searchParams.get("next") ?? "/home"
-      router.push(next)
+      router.push(safeRedirectPath(searchParams.get("next")))
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
