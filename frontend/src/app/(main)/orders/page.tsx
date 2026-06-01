@@ -169,14 +169,17 @@ export default function OrdersPage() {
                     ? `TXID: ${order.pix_txid}`
                     : ""}
                 </div>
-                {order.status !== "paid" && order.status !== "cancelled" && (
+                {order.status === "payment_reported" && (
                   <button
                     onClick={() => markPaid(order.id)}
                     disabled={confirmingId === order.id}
                     className="rounded-lg border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
                   >
-                    {confirmingId === order.id ? "Confirmando..." : "Confirmar pagamento"}
+                    {confirmingId === order.id ? "Confirmando..." : "Marcar como pago"}
                   </button>
+                )}
+                {order.status === "pending_payment" && (
+                  <span className="text-xs text-amber-700">Aguardando cliente informar pagamento</span>
                 )}
               </div>
             </div>
