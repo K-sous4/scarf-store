@@ -96,6 +96,9 @@ celerybeat.pid
 *.sage.py
 
 # Environments (root .env is committed for local ./dev — do not put production secrets here)
+.env.render
+.env.production
+.env.local
 .venv
 env/
 venv/

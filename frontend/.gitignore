@@ -30,9 +30,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files — .env.local is committed for npm run dev without root ./dev
+# env files — .env.local (dev) e .env.production (Vercel) versionados
 .env*
 !.env.local
+!.env.production
 
 # vercel
 .vercel
