@@ -24,7 +24,8 @@ class Order(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    user = relationship("User")
+    user = relationship("User", foreign_keys=[user_id])
+    paid_by_admin = relationship("User", foreign_keys=[paid_by_admin_id])
     items = relationship(
         "OrderItem",
         back_populates="order",
