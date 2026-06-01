@@ -150,7 +150,13 @@ async def logout(http_request: Request, response: Response):
     if session_id:
         session_manager.invalidate_session(session_id)
 
-    response.delete_cookie(key=COOKIE_NAME, path="/", domain=None)
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        path="/",
+        domain=None,
+        httponly=True,
+        samesite="lax",
+    )
     return {"message": "Logout successful"}
 
 
