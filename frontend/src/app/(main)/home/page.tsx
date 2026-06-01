@@ -24,6 +24,7 @@ interface Product {
   material: string | null
   is_new: boolean
   is_featured: boolean
+  is_active?: boolean
   images: string[] | null
   available_stock: number
   low_stock_threshold: number
@@ -412,7 +413,7 @@ function PaymentModal({
             </div>
             <div className="mt-2 flex items-center justify-between text-xs text-zinc-500">
               <span>TXID</span>
-              <span className="font-medium text-zinc-700">{txid}</span>
+              <span className="font-medium text-zinc-700">{pixTxid}</span>
             </div>
             {isReported && (
               <p className="mt-3 text-xs text-amber-700">
@@ -934,7 +935,7 @@ export default function HomePage() {
       const refreshedCart = cartItems
         .map((item) => {
           const fresh = stockById.get(item.product.id)
-          if (!fresh || !fresh.is_active) return null
+          if (!fresh || fresh.is_active === false) return null
           const qty = Math.min(item.qty, fresh.available_stock)
           if (qty <= 0) return null
           return { product: fresh, qty }

@@ -47,8 +47,8 @@ const statusLabels: Record<OrderStatus, string> = {
   cancelled: "Cancelado",
 }
 
-function formatPrice(value: number) {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+function formatPrice(value: number | string) {
+  return Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
 
 function formatDate(value: string) {
