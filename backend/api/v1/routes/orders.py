@@ -232,6 +232,8 @@ async def confirm_payment(
         return order
     if order.status == ORDER_STATUS_CANCELLED:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pedido cancelado")
+    if order.status == ORDER_STATUS_REPORTED:
+        return order
 
     reference = payload.reference.strip()
     if not reference:
