@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Request, Response
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from models.user import User
 from utils.security import hash_password, verify_password
@@ -14,14 +14,14 @@ logger = logging.getLogger(__name__)
 
 
 class SignUpRequest(BaseModel):
-    username: str
-    password: str
+    username: str = Field(..., min_length=3, max_length=50)
+    password: str = Field(..., min_length=6, max_length=128)
     email: EmailStr | None = None
 
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: str = Field(..., min_length=1, max_length=50)
+    password: str = Field(..., min_length=1, max_length=128)
 
 
 class AuthResponse(BaseModel):
@@ -49,6 +49,14 @@ async def sign_in(request: SignUpRequest, response: Response, db: Session = Depe
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Registration failed"
         )
+
+    if request.email:
+        existing_email = db.query(User).filter(User.email == request.email).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Registration failed",
+            )
 
     hashed_password = hash_password(request.password)
     new_user = User(
