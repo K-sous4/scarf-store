@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { api } from "@/lib/api"
+import { api, ApiError } from "@/lib/api"
 import type { User, LoginRequest, SignUpRequest, AuthResponse } from "@/types/auth"
 
 interface AuthContextValue {
@@ -22,16 +22,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
   // Restaura a sessão ao montar o provider (refresh da página, nova aba, etc.)
+  const clearStaleSession = useCallback(async () => {
+    try {
+      await api.post("/auth/logout")
+    } catch {
+      // ignore — cookie may already be invalid
+    }
+  }, [])
+
   const fetchProfile = useCallback(async () => {
     try {
       const data = await api.get<User>("/auth/profile")
       setUser(data)
-    } catch {
+    } catch (err) {
       setUser(null)
+      if (err instanceof ApiError && err.status === 401) {
+        await clearStaleSession()
+      }
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [clearStaleSession])
 
   useEffect(() => {
     fetchProfile()
