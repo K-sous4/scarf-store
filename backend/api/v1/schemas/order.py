@@ -1,7 +1,9 @@
 from pydantic import BaseModel, Field, field_serializer
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, Literal
+
+OrderStatus = Literal["pending_payment", "payment_reported", "paid", "cancelled"]
 
 
 class OrderItemCreate(BaseModel):
@@ -10,8 +12,8 @@ class OrderItemCreate(BaseModel):
 
 
 class OrderCreateRequest(BaseModel):
-    items: List[OrderItemCreate]
-    payment_method: Optional[str] = None
+    items: List[OrderItemCreate] = Field(..., min_length=1)
+    payment_method: Literal["pix"] = "pix"
 
 
 class OrderConfirmPaymentRequest(BaseModel):
@@ -26,8 +28,8 @@ class OrderItemResponse(BaseModel):
     total_price: Decimal
 
     @field_serializer("unit_price", "total_price")
-    def serialize_decimal_as_float(self, value: Decimal) -> float:
-        return float(value)
+    def serialize_decimal_as_str(self, value: Decimal) -> str:
+        return format(value, "f")
 
     class Config:
         from_attributes = True
@@ -44,7 +46,7 @@ class OrderUserSummary(BaseModel):
 
 class OrderResponse(BaseModel):
     id: int
-    status: str
+    status: OrderStatus
     payment_method: str
     total_amount: Decimal
     pix_txid: Optional[str] = None
@@ -57,8 +59,8 @@ class OrderResponse(BaseModel):
     items: List[OrderItemResponse]
 
     @field_serializer("total_amount")
-    def serialize_total_amount(self, value: Decimal) -> float:
-        return float(value)
+    def serialize_total_amount(self, value: Decimal) -> str:
+        return format(value, "f")
 
     class Config:
         from_attributes = True

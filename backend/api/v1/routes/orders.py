@@ -9,6 +9,7 @@ from api.v1.schemas.order import (
     OrderConfirmPaymentRequest,
     OrderResponse,
     OrderAdminResponse,
+    OrderStatus,
 )
 from database.db import get_db
 from models.order import Order, OrderItem
@@ -163,7 +164,7 @@ async def list_my_orders(
 
 @router.get("/admin", response_model=list[OrderAdminResponse])
 async def list_all_orders(
-    status_filter: str | None = Query(None, alias="status"),
+    status_filter: OrderStatus | None = Query(None, alias="status"),
     current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
