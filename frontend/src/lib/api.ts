@@ -8,6 +8,21 @@ type FormRequestOptions = Omit<RequestInit, "body"> & {
   body?: FormData
 }
 
+function formatApiDetail(detail: unknown): string {
+  if (typeof detail === "string") return detail
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (item && typeof item === "object" && "msg" in item) {
+          return String((item as { msg: string }).msg)
+        }
+        return "Dados invalidos"
+      })
+      .join(". ")
+  }
+  return "Erro desconhecido"
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { body, headers, ...rest } = options
 
@@ -23,7 +38,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: "Erro desconhecido" }))
-    throw new ApiError(response.status, error.detail ?? "Erro desconhecido")
+    throw new ApiError(response.status, formatApiDetail(error.detail))
   }
 
   // 204 No Content
@@ -46,7 +61,7 @@ async function requestForm<T>(path: string, formData: FormData, options: FormReq
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: "Erro desconhecido" }))
-    throw new ApiError(response.status, error.detail ?? "Erro desconhecido")
+    throw new ApiError(response.status, formatApiDetail(error.detail))
   }
 
   if (response.status === 204) return undefined as T
