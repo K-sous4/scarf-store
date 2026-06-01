@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Keep frontend lib files
+!frontend/src/lib/
+!frontend/src/lib/**
+
 # C extensions
 *.so
 
@@ -14,7 +18,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -37,7 +41,7 @@ htmlcov/
 .nox/
 .coverage
 .coverage.*
-.cache
+.cache/
 nosetests.xml
 coverage.xml
 *.cover
@@ -91,8 +95,7 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
-.env
+# Environments (root .env is committed for local ./dev — do not put production secrets here)
 .venv
 env/
 venv/
@@ -134,3 +137,6 @@ poetry.lock
 
 # Docker
 .dockerignore
+
+# Dev logs
+.dev-logs/

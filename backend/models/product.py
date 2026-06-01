@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, func, Text, Boolean, Numeric, DECIMAL
+from sqlalchemy.orm import relationship
 from sqlalchemy.types import JSON
 from database.db import Base
 from datetime import datetime
@@ -53,6 +54,13 @@ class Product(Base):
     images = Column(JSON)  # Lista de URLs das imagens
     specifications = Column(JSON)  # Especificações técnicas (formato livre)
     attributes = Column(JSON)  # Atributos adicionais (formato livre)
+
+    image_blobs = relationship(
+        "ProductImage",
+        back_populates="product",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
     
     # Auditoria
     created_at = Column(DateTime, server_default=func.now(), index=True)

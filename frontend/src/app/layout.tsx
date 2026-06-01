@@ -1,10 +1,22 @@
 import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AuthProvider } from "@/lib/auth-context";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: "Scarf Store - Premium Scarves & Accessories",
-  description: "Discover our collection of premium scarves and accessories",
+  title: "Scarf Store",
+  description: "Loja de lenços e acessórios",
+  icons: { icon: "/favicon.svg" },
 };
 
 export default function RootLayout({
@@ -13,11 +25,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="bg-amber-100 text-gray-900">
-        <ErrorBoundary>
-          {children}
-        </ErrorBoundary>
+    <html lang="pt-BR">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

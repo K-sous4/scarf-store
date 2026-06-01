@@ -157,3 +157,8 @@ class ProductResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class ProductImagesUploadResponse(BaseModel):
+    """Resposta para upload de imagens"""
+    urls: List[str]

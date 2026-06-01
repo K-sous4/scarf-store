@@ -20,11 +20,7 @@ async def get_current_user(
     """
     # Extract session ID from cookie
     session_id = request.cookies.get(COOKIE_NAME)
-    
-    logger.info(f"[Dependencies] Cookies in request: {dict(request.cookies)}")
-    logger.info(f"[Dependencies] Looking for session_id cookie: {session_id}")
-    logger.info(f"[Dependencies] Request headers: {dict(request.headers)}")
-    
+
     if not session_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -44,9 +40,10 @@ async def get_current_user(
     user = db.query(User).filter(User.id == session_data["user_id"]).first()
     
     if not user:
+        session_manager.invalidate_session(session_id)
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired or invalid",
         )
     
     # Refresh session TTL

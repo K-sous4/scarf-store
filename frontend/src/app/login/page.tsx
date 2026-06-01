@@ -1,111 +1,130 @@
-'use client'
+"use client"
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/use-auth'
+import { Suspense, useEffect, useState } from "react"
+import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
+import { ApiError } from "@/lib/api"
+import { safeRedirectPath } from "@/lib/safe-redirect"
 
-export default function LoginPage() {
+function LoginForm() {
+  const { login } = useAuth()
   const router = useRouter()
-  const { login, isAuthenticated, error: authError, isLoading } = useAuth()
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [localError, setLocalError] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
-  // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/admin/dashboard')
+    const message = sessionStorage.getItem("auth_notice")
+    if (message) {
+      setNotice(message)
+      sessionStorage.removeItem("auth_notice")
     }
-  }, [isAuthenticated, router])
+  }, [])
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
-    setLocalError(null)
+    setError(null)
+    setIsLoading(true)
 
-    // Validation
-    if (!username || !password) {
-      setLocalError('Usuário e senha são obrigatórios')
-      return
-    }
-
-    const result = await login({ username, password })
-
-    if (!result.success) {
-      setLocalError(result.error || 'Falha ao fazer login')
+    try {
+      await login({ username, password })
+      router.push(safeRedirectPath(searchParams.get("next")))
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+      } else {
+        setError("Ocorreu um erro inesperado. Tente novamente.")
+      }
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const displayError = localError || authError
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-amber-100 px-4">
-      <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="text-5xl mb-4">🧣</div>
-          <h1 className="text-3xl font-bold text-gray-900">Scarf Store</h1>
-          <p className="text-gray-600 mt-2">Área Administrativa</p>
-        </div>
+    <div className="flex min-h-screen items-center justify-center bg-zinc-50">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm ring-1 ring-zinc-200">
+        <h1 className="mb-6 text-2xl font-semibold text-zinc-900">Entrar</h1>
 
-        {/* Error Message */}
-        {displayError && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-red-700 text-sm">⚠️ {displayError}</p>
+        {notice && (
+          <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {notice}
           </div>
         )}
 
-        {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Username Field */}
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="username" className="text-sm font-medium text-zinc-700">
               Usuário
             </label>
             <input
               id="username"
               type="text"
+              autoComplete="username"
+              required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="seu usuário"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-700 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
-              disabled={isLoading}
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200"
             />
           </div>
 
-          {/* Password Field */}
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="password" className="text-sm font-medium text-zinc-700">
               Senha
             </label>
             <input
               id="password"
               type="password"
+              autoComplete="current-password"
+              required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-700 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
-              disabled={isLoading}
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200"
             />
           </div>
 
-          {/* Submit Button */}
+          {error && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+              {error}
+            </p>
+          )}
+
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-amber-700 hover:bg-amber-800 text-white font-bold py-2 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+            className="mt-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-50"
           >
-            {isLoading ? '⏳ Entrando...' : '🔓 Entrar'}
+            {isLoading ? "Entrando..." : "Entrar"}
           </button>
-        </form>
 
-        {/* Footer */}
-        <div className="mt-6 pt-6 border-t border-gray-200 text-center text-sm text-gray-600">
-          <p>Credenciais de teste:</p>
-          <p className="text-xs mt-2 text-gray-500">
-            admin / admin123
+          <p className="text-center text-sm text-zinc-500">
+            <Link
+              href="/forgot-password"
+              className="font-medium text-zinc-700 hover:text-zinc-900 hover:underline"
+            >
+              Esqueci minha senha
+            </Link>
           </p>
-        </div>
+
+          <Link
+            href="/"
+            className="mt-2 inline-flex items-center justify-center rounded-lg border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50"
+          >
+            Voltar
+          </Link>
+        </form>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }
