@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import Response
 
 COOKIE_NAME = "session_id"
@@ -12,16 +14,17 @@ def set_session_cookie(response: Response, session_id: str) -> None:
         response: FastAPI Response object
         session_id: Session ID to set in cookie
     """
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=COOKIE_MAX_AGE)
     response.set_cookie(
         key=COOKIE_NAME,
         value=session_id,
         max_age=COOKIE_MAX_AGE,
-        expires=COOKIE_MAX_AGE,
+        expires=expires_at,
         path="/",
         domain=None,
         secure=False,  # Set to True in production (requires HTTPS)
-        httponly=True,  # Prevent JavaScript access
-        samesite="lax"  # Allow cookies to be sent with cross-origin requests
+        httponly=True,
+        samesite="lax",
     )
 
 

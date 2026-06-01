@@ -1,8 +1,7 @@
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from services.session import session_manager
-
-COOKIE_NAME = "session_id"
+from utils.cookies import COOKIE_NAME, refresh_session_cookie
 
 # Endpoints que não precisam renovar sessão (endpoints públicos)
 SKIP_REFRESH_PATHS = {
@@ -37,8 +36,8 @@ class SessionRefreshMiddleware(BaseHTTPMiddleware):
         # Get session ID from request cookies
         session_id = request.cookies.get(COOKIE_NAME)
 
-        # If user has a valid session, just extend its TTL (no rotation)
-        if session_id:
+        if session_id and session_manager.get_session(session_id):
             session_manager.refresh_session(session_id)
+            refresh_session_cookie(response, session_id)
 
         return response
