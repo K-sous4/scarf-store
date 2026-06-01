@@ -94,6 +94,13 @@ async def login(request: LoginRequest, response: Response, http_request: Request
     ip_address = http_request.client.host if http_request.client else None
     user_agent = http_request.headers.get("user-agent", "")
 
+    failed_attempts = LoggingService.get_auth_failed_attempts(db, request.username, minutes=15)
+    if len(failed_attempts) >= 5:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Try again later.",
+        )
+
     user = db.query(User).filter(User.username == request.username).first()
 
     if not user or not verify_password(request.password, user.hashed_password):
