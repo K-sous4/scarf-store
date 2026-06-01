@@ -23,6 +23,9 @@ type OrderStatus = "pending_payment" | "payment_reported" | "paid" | "delivered"
 
 interface Order {
   id: number
+  user_id: number
+  buyer_username: string
+  buyer_email?: string | null
   status: OrderStatus
   payment_method: string
   total_amount: number
@@ -32,8 +35,14 @@ interface Order {
   terms_version?: string | null
   delivery_note?: string | null
   delivered_at?: string | null
-  user: OrderUser
+  user?: OrderUser
   items: OrderItem[]
+}
+
+function buyerLabel(order: Order) {
+  const name = order.buyer_username || order.user?.username || "Cliente"
+  const email = order.buyer_email ?? order.user?.email
+  return { name, email }
 }
 
 const statusStyles: Record<OrderStatus, string> = {
@@ -155,18 +164,27 @@ export default function OrdersPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {orders.map((order) => (
+          {orders.map((order) => {
+            const buyer = buyerLabel(order)
+            return (
             <div key={order.id} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-zinc-900">Pedido #{order.id}</p>
-                  <p className="text-xs text-zinc-400">
-                    {formatDate(order.created_at)} · {order.user.username}
-                  </p>
+                  <p className="text-xs text-zinc-400">{formatDate(order.created_at)}</p>
                 </div>
                 <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[order.status]}`}>
                   {statusLabels[order.status]}
                 </span>
+              </div>
+
+              <div className="mt-3 rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">Cliente</p>
+                <p className="mt-1 text-sm font-semibold text-zinc-900">{buyer.name}</p>
+                <p className="text-xs text-zinc-500">ID do usuario: {order.user_id}</p>
+                {buyer.email && (
+                  <p className="text-xs text-zinc-600 break-all">{buyer.email}</p>
+                )}
               </div>
 
               <div className="mt-4 space-y-3">
@@ -231,7 +249,7 @@ export default function OrdersPage() {
                 )}
               </div>
             </div>
-          ))}
+          )})}
         </div>
       )}
 

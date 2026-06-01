@@ -42,10 +42,21 @@ def ensure_order_columns():
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_note VARCHAR(255)",
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_by_admin_id INTEGER REFERENCES users(id)",
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_by_admin_id INTEGER REFERENCES users(id)",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_username VARCHAR(255)",
+        "ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_email VARCHAR(255)",
     ]
+    backfill = """
+        UPDATE orders o
+        SET buyer_username = u.username,
+            buyer_email = u.email
+        FROM users u
+        WHERE o.user_id = u.id
+          AND o.buyer_username IS NULL
+    """
     try:
         with engine.begin() as conn:
             for sql in statements:
                 conn.execute(text(sql))
+            conn.execute(text(backfill))
     except Exception as exc:
         logger.warning("ensure_order_columns: %s", exc)

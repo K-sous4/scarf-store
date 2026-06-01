@@ -8,6 +8,8 @@ class Order(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    buyer_username = Column(String(255), nullable=True, index=True)
+    buyer_email = Column(String(255), nullable=True)
 
     status = Column(String(30), nullable=False, default="pending_payment", index=True)
     payment_method = Column(String(30), nullable=False, default="pix")

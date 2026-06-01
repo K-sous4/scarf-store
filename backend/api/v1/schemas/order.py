@@ -60,6 +60,9 @@ class OrderUserSummary(BaseModel):
 
 class OrderResponse(BaseModel):
     id: int
+    user_id: int
+    buyer_username: Optional[str] = None
+    buyer_email: Optional[str] = None
     status: OrderStatus
     payment_method: str
     total_amount: Decimal
@@ -85,4 +88,4 @@ class OrderResponse(BaseModel):
 
 
 class OrderAdminResponse(OrderResponse):
-    user: OrderUserSummary
+    user: Optional[OrderUserSummary] = None

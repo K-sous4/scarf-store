@@ -151,6 +151,8 @@ async def create_order(
 
     order = Order(
         user_id=current_user.id,
+        buyer_username=current_user.username,
+        buyer_email=current_user.email,
         status=ORDER_STATUS_PENDING,
         payment_method=(payload.payment_method or "pix"),
         total_amount=total_amount.quantize(Decimal("0.01")),
@@ -177,7 +179,7 @@ async def create_order(
 
     order = (
         db.query(Order)
-        .options(selectinload(Order.items))
+        .options(selectinload(Order.items), selectinload(Order.user))
         .filter(Order.id == order.id)
         .first()
     )
