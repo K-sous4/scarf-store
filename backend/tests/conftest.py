@@ -95,13 +95,28 @@ def payment_settings(db_session):
     return settings
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _cleanup_test_products_after_suite():
+    """Evita acumular 'Lenço Teste' no banco de desenvolvimento apos pytest."""
+    yield
+    import models.product_image  # noqa: F401 — registra relacionamento ProductImage
+    from database.db import SessionLocal
+    from database.mockup import cleanup_test_products
+
+    db = SessionLocal()
+    try:
+        cleanup_test_products(db)
+    finally:
+        db.close()
+
+
 @pytest.fixture
 def sample_product(db_session):
     from models.product import Product
 
     product = Product(
-        sku=f"TEST-{uuid.uuid4().hex[:6]}",
-        name="Lenço Teste",
+        sku=f"TEST-{uuid.uuid4().hex[:8]}",
+        name="Lenço Teste (pytest)",
         short_description="Produto para testes",
         description="Descricao teste",
         category="Lenços de Seda",

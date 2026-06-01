@@ -248,8 +248,24 @@ PRODUCTS = [
     },
 ]
 
+SEED_SKUS = [item["sku"] for item in PRODUCTS]
+
 
 # ── Seed functions ────────────────────────────────────────────────────────────
+
+def cleanup_test_products(db: Session) -> int:
+    """Remove produtos criados pelos testes automatizados (SKU TEST-*)."""
+    removed = (
+        db.query(Product)
+        .filter(
+            (Product.sku.like("TEST-%")) | (Product.name == "Lenço Teste")
+        )
+        .delete(synchronize_session=False)
+    )
+    if removed:
+        db.commit()
+        logger.info("✓ %d produto(s) de teste removido(s) do catalogo.", removed)
+    return removed
 
 def seed_categories(db: Session) -> None:
     if db.query(Category).first():
@@ -282,13 +298,24 @@ def seed_materials(db: Session) -> None:
 
 
 def seed_products(db: Session) -> None:
-    if db.query(Product).first():
-        logger.info("✓ Produtos já existem — ignorando seed.")
-        return
+    cleanup_test_products(db)
+
+    existing_skus = {
+        row[0]
+        for row in db.query(Product.sku).filter(Product.sku.in_(SEED_SKUS)).all()
+    }
+    inserted = 0
     for data in PRODUCTS:
+        if data["sku"] in existing_skus:
+            continue
         db.add(Product(**data))
-    db.commit()
-    logger.info(f"✓ {len(PRODUCTS)} produtos inseridos.")
+        inserted += 1
+
+    if inserted:
+        db.commit()
+        logger.info("✓ %d produto(s) do catalogo inseridos.", inserted)
+    else:
+        logger.info("✓ Catalogo de produtos do seed ja esta completo (%d itens).", len(SEED_SKUS))
 
 
 def seed_payment_settings(db: Session) -> None:
@@ -303,6 +330,7 @@ def seed_payment_settings(db: Session) -> None:
 def seed_mockup(db: Session) -> None:
     """Executa todos os seeds de mockup (idempotente por tabela)."""
     logger.info("Inserindo dados de desenvolvimento...")
+    cleanup_test_products(db)
     seed_payment_settings(db)
     seed_categories(db)
     seed_colors(db)
