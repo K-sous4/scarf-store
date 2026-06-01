@@ -173,6 +173,45 @@ async def list_all_orders(
     return query.order_by(Order.created_at.desc()).all()
 
 
+def _release_order_reservations(order: Order, db: Session) -> None:
+    for item in order.items:
+        product = db.query(Product).filter(Product.id == item.product_id).first()
+        if not product:
+            continue
+        product.reserved_stock = max(0, product.reserved_stock - item.quantity)
+        _recalculate_available(product)
+
+
+@router.post("/{order_id}/cancel", response_model=OrderResponse)
+async def cancel_order(
+    order_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    order = (
+        db.query(Order)
+        .options(selectinload(Order.items))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido nao encontrado")
+
+    if order.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
+
+    if order.status == ORDER_STATUS_PAID:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pedido ja pago")
+    if order.status == ORDER_STATUS_CANCELLED:
+        return order
+
+    _release_order_reservations(order, db)
+    order.status = ORDER_STATUS_CANCELLED
+    db.commit()
+    db.refresh(order)
+    return order
+
+
 @router.post("/{order_id}/confirm-payment", response_model=OrderResponse)
 async def confirm_payment(
     order_id: int,
