@@ -8,6 +8,8 @@ const PUBLIC_EXACT = ["/"]
 
 const SESSION_COOKIE = "session_id"
 
+const ADMIN_PREFIXES = ["/orders", "/stock", "/products", "/settings"]
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value
@@ -23,6 +25,12 @@ export function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url)
     loginUrl.searchParams.set("next", pathname)
     return NextResponse.redirect(loginUrl)
+  }
+
+  const role = request.cookies.get("user_role")?.value
+  const isAdminRoute = ADMIN_PREFIXES.some((p) => pathname.startsWith(p))
+  if (isAuthenticated && isAdminRoute && role && role !== "admin") {
+    return NextResponse.redirect(new URL("/home", request.url))
   }
 
   return NextResponse.next()

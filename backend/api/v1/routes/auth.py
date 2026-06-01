@@ -3,7 +3,13 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from models.user import User
 from utils.security import hash_password, verify_password
-from utils.cookies import set_session_cookie, refresh_session_cookie, COOKIE_NAME
+from utils.cookies import (
+    set_session_cookie,
+    set_user_role_cookie,
+    refresh_session_cookie,
+    clear_auth_cookies,
+    COOKIE_NAME,
+)
 from database.db import get_db
 from services.session import session_manager
 from services.logging_service import LoggingService
@@ -76,6 +82,7 @@ async def sign_in(request: SignUpRequest, response: Response, db: Session = Depe
         role=new_user.role
     )
     set_session_cookie(response, session_id)
+    set_user_role_cookie(response, new_user.role)
 
     return {
         "user": {
@@ -122,6 +129,7 @@ async def login(request: LoginRequest, response: Response, http_request: Request
         role=user.role
     )
     set_session_cookie(response, session_id)
+    set_user_role_cookie(response, user.role)
 
     LoggingService.log_auth_success(
         db=db,
@@ -150,13 +158,7 @@ async def logout(http_request: Request, response: Response):
     if session_id:
         session_manager.invalidate_session(session_id)
 
-    response.delete_cookie(
-        key=COOKIE_NAME,
-        path="/",
-        domain=None,
-        httponly=True,
-        samesite="lax",
-    )
+    clear_auth_cookies(response)
     return {"message": "Logout successful"}
 
 
@@ -179,5 +181,6 @@ async def get_profile(http_request: Request, response: Response, db: Session = D
 
     session_manager.refresh_session(session_id)
     refresh_session_cookie(response, session_id)
+    set_user_role_cookie(response, user.role)
 
     return {"id": user.id, "username": user.username, "role": user.role}
