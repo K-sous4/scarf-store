@@ -66,7 +66,13 @@ async def create_order(
         items_map[item.product_id] = items_map.get(item.product_id, 0) + item.quantity
 
     product_ids = list(items_map.keys())
-    products = db.query(Product).filter(Product.id.in_(product_ids)).all()
+    products = (
+        db.query(Product)
+        .filter(Product.id.in_(product_ids))
+        .order_by(Product.id)
+        .with_for_update()
+        .all()
+    )
 
     if len(products) != len(product_ids):
         missing = sorted(set(product_ids) - {p.id for p in products})
