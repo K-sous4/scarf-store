@@ -48,8 +48,8 @@ const statusLabels: Record<OrderStatus, string> = {
   cancelled: "Cancelado",
 }
 
-function formatPrice(value: number) {
-  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+function formatPrice(value: number | string) {
+  return Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 }
 
 function formatDate(value: string) {
@@ -67,6 +67,7 @@ export default function PurchasesPage() {
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [references, setReferences] = useState<Record<number, string>>({})
   const [pixOpenId, setPixOpenId] = useState<number | null>(null)
+  const [cancellingId, setCancellingId] = useState<number | null>(null)
 
   useEffect(() => {
     if (!isLoading && user?.role === "admin") router.replace("/orders")
@@ -88,6 +89,20 @@ export default function PurchasesPage() {
   useEffect(() => {
     loadOrders()
   }, [loadOrders])
+
+  const cancelOrder = useCallback(async (orderId: number) => {
+    setCancellingId(orderId)
+    setError(null)
+    try {
+      const updated = await api.post<Order>(`/orders/${orderId}/cancel`)
+      setOrders((prev) => prev.map((order) => (order.id === orderId ? updated : order)))
+      setPixOpenId((id) => (id === orderId ? null : id))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Nao foi possivel cancelar o pedido")
+    } finally {
+      setCancellingId(null)
+    }
+  }, [])
 
   const confirmPayment = useCallback(async (orderId: number) => {
     const reference = (references[orderId] ?? "").trim()
@@ -198,6 +213,16 @@ export default function PurchasesPage() {
                       </div>
                     )}
                   </div>
+                )}
+                {(order.status === "pending_payment" || order.status === "payment_reported") && (
+                  <button
+                    type="button"
+                    onClick={() => cancelOrder(order.id)}
+                    disabled={cancellingId === order.id}
+                    className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+                  >
+                    {cancellingId === order.id ? "Cancelando..." : "Cancelar pedido"}
+                  </button>
                 )}
                 {order.status === "pending_payment" && (
                   <div className="flex flex-1 flex-col sm:flex-row gap-2 sm:items-center sm:justify-end">
