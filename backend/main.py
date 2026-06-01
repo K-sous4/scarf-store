@@ -57,7 +57,15 @@ async def lifespan(app: FastAPI):
     try:
         db = SessionLocal()
         seed_admin(db)
-        if ENVIRONMENT == Environment.DEVELOPMENT:
+        seed_catalog = (
+            ENVIRONMENT == Environment.DEVELOPMENT
+            or os.getenv("SEED_CATALOG", "").lower() in ("1", "true", "yes")
+            or (
+                ENVIRONMENT == Environment.RELEASE
+                and db.query(product.Product).count() == 0
+            )
+        )
+        if seed_catalog:
             seed_mockup(db)
         expired = expire_stale_pending_orders(db)
         if expired:
