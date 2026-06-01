@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { ApiError } from "@/lib/api"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -196,6 +197,7 @@ function Carousel({ title, products }: { title: string; products: Product[] }) {
 
 function SignUpModal({ onClose }: { onClose: () => void }) {
   const router = useRouter()
+  const { signUp } = useAuth()
   const [form, setForm] = useState({ username: "", email: "", password: "", confirm: "" })
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -218,26 +220,18 @@ function SignUpModal({ onClose }: { onClose: () => void }) {
     setLoading(true)
     setError(null)
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1"
-      const res = await fetch(`${apiBase}/auth/sign-in`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: form.username,
-          password: form.password,
-          email: form.email || undefined,
-        }),
+      await signUp({
+        username: form.username,
+        password: form.password,
+        email: form.email || undefined,
       })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setError(data?.detail ?? "Erro ao criar conta. Tente novamente.")
-        return
-      }
-      // Session cookie is set by the backend — navigate to dashboard
       router.push("/home")
-    } catch {
-      setError("Erro de conexão. Tente novamente.")
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+      } else {
+        setError("Erro de conexão. Tente novamente.")
+      }
     } finally {
       setLoading(false)
     }
