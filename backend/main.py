@@ -12,7 +12,7 @@ load_dotenv()
 # Import models BEFORE creating tables
 from models import user, product, product_image, category, color, material, audit_log, payment_settings, order
 from api.v1.routes import auth, products, categories, colors, materials, users, payment_settings, orders
-from database.db import create_tables, SessionLocal
+from database.db import create_tables, ensure_order_columns, SessionLocal
 from database.seed import seed_admin
 from database.mockup import seed_mockup
 from middlewares.session_refresh import SessionRefreshMiddleware
@@ -46,6 +46,7 @@ async def lifespan(app: FastAPI):
     # Startup
     try:
         create_tables()
+        ensure_order_columns()
         logging.info("✓ Tables created successfully!")
     except Exception as e:
         logging.error(f"✗ Error creating tables: {e}")

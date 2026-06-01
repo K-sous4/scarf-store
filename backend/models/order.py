@@ -21,11 +21,18 @@ class Order(Base):
     paid_at = Column(DateTime, nullable=True)
     paid_by_admin_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
+    terms_version = Column(String(20), nullable=True)
+    terms_accepted_at = Column(DateTime, nullable=True)
+    delivered_at = Column(DateTime, nullable=True)
+    delivery_note = Column(String(255), nullable=True)
+    delivered_by_admin_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", foreign_keys=[user_id])
     paid_by_admin = relationship("User", foreign_keys=[paid_by_admin_id])
+    delivered_by_admin = relationship("User", foreign_keys=[delivered_by_admin_id])
     items = relationship(
         "OrderItem",
         back_populates="order",

@@ -19,7 +19,7 @@ interface OrderItem {
   total_price: number
 }
 
-type OrderStatus = "pending_payment" | "payment_reported" | "paid" | "cancelled"
+type OrderStatus = "pending_payment" | "payment_reported" | "paid" | "delivered" | "cancelled"
 
 interface Order {
   id: number
@@ -29,6 +29,9 @@ interface Order {
   created_at: string
   pix_txid?: string | null
   payment_reference?: string | null
+  terms_version?: string | null
+  delivery_note?: string | null
+  delivered_at?: string | null
   user: OrderUser
   items: OrderItem[]
 }
@@ -37,13 +40,15 @@ const statusStyles: Record<OrderStatus, string> = {
   pending_payment: "bg-amber-50 text-amber-700",
   payment_reported: "bg-sky-50 text-sky-700",
   paid: "bg-emerald-50 text-emerald-700",
+  delivered: "bg-emerald-100 text-emerald-800",
   cancelled: "bg-zinc-100 text-zinc-500",
 }
 
 const statusLabels: Record<OrderStatus, string> = {
   pending_payment: "Aguardando pagamento",
   payment_reported: "Pagamento informado",
-  paid: "Pago",
+  paid: "Pago — enviar produto",
+  delivered: "Entregue",
   cancelled: "Cancelado",
 }
 
@@ -64,6 +69,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
+  const [deliveryNotes, setDeliveryNotes] = useState<Record<number, string>>({})
 
   useEffect(() => {
     if (!isLoading && user?.role !== "admin") router.replace("/home")
@@ -98,6 +104,21 @@ export default function OrdersPage() {
     }
   }, [])
 
+  const markDelivered = useCallback(async (orderId: number) => {
+    setConfirmingId(orderId)
+    try {
+      const note = (deliveryNotes[orderId] ?? "").trim()
+      const updated = await api.post<Order>(`/orders/${orderId}/mark-delivered`, {
+        delivery_note: note || undefined,
+      })
+      setOrders((prev) => prev.map((order) => (order.id === orderId ? updated : order)))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Nao foi possivel registrar a entrega")
+    } finally {
+      setConfirmingId(null)
+    }
+  }, [deliveryNotes])
+
   if (isLoading || user?.role !== "admin") {
     return (
       <div className="flex h-full items-center justify-center">
@@ -111,7 +132,9 @@ export default function OrdersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900">Pedidos recebidos</h1>
-          <p className="mt-1 text-sm text-zinc-500">Acompanhe as compras e confirme pagamentos</p>
+          <p className="mt-1 text-sm text-zinc-500">
+            Confirme pagamentos e registre entrega (obrigacao do termo aceito pelo cliente)
+          </p>
         </div>
         <button
           onClick={loadOrders}
@@ -169,6 +192,9 @@ export default function OrdersPage() {
                     ? `TXID: ${order.pix_txid}`
                     : ""}
                 </div>
+                {order.terms_version && (
+                  <span className="text-xs text-zinc-500">Termo v{order.terms_version} aceito</span>
+                )}
                 {order.status === "payment_reported" && (
                   <button
                     onClick={() => markPaid(order.id)}
@@ -177,6 +203,28 @@ export default function OrdersPage() {
                   >
                     {confirmingId === order.id ? "Confirmando..." : "Marcar como pago"}
                   </button>
+                )}
+                {order.status === "paid" && (
+                  <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                    <input
+                      value={deliveryNotes[order.id] ?? ""}
+                      onChange={(e) =>
+                        setDeliveryNotes((prev) => ({ ...prev, [order.id]: e.target.value }))
+                      }
+                      placeholder="Codigo de rastreio ou observacao"
+                      className="w-full sm:w-56 rounded-lg border border-zinc-200 px-3 py-2 text-xs text-zinc-900"
+                    />
+                    <button
+                      onClick={() => markDelivered(order.id)}
+                      disabled={confirmingId === order.id}
+                      className="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-50"
+                    >
+                      {confirmingId === order.id ? "Salvando..." : "Registrar entrega"}
+                    </button>
+                  </div>
+                )}
+                {order.status === "delivered" && order.delivery_note && (
+                  <span className="text-xs text-emerald-700">{order.delivery_note}</span>
                 )}
                 {order.status === "pending_payment" && (
                   <span className="text-xs text-amber-700">Aguardando cliente informar pagamento</span>

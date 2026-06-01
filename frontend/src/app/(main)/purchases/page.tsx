@@ -11,6 +11,7 @@ import {
   PIX_MERCHANT_CITY,
   PIX_MERCHANT_NAME,
 } from "@/lib/pix"
+import { PurchaseTermsModal } from "@/components/PurchaseTermsModal"
 
 interface OrderItem {
   product_id: number
@@ -20,7 +21,7 @@ interface OrderItem {
   total_price: number
 }
 
-type OrderStatus = "pending_payment" | "payment_reported" | "paid" | "cancelled"
+type OrderStatus = "pending_payment" | "payment_reported" | "paid" | "delivered" | "cancelled"
 
 interface Order {
   id: number
@@ -31,6 +32,9 @@ interface Order {
   pix_txid?: string | null
   pix_key?: string | null
   payment_reference?: string | null
+  terms_version?: string | null
+  delivered_at?: string | null
+  delivery_note?: string | null
   items: OrderItem[]
 }
 
@@ -38,13 +42,15 @@ const statusStyles: Record<OrderStatus, string> = {
   pending_payment: "bg-amber-50 text-amber-700",
   payment_reported: "bg-sky-50 text-sky-700",
   paid: "bg-emerald-50 text-emerald-700",
+  delivered: "bg-emerald-100 text-emerald-800",
   cancelled: "bg-zinc-100 text-zinc-500",
 }
 
 const statusLabels: Record<OrderStatus, string> = {
   pending_payment: "Aguardando pagamento",
   payment_reported: "Pagamento informado",
-  paid: "Pago",
+  paid: "Pago — aguardando entrega",
+  delivered: "Entregue",
   cancelled: "Cancelado",
 }
 
@@ -68,6 +74,7 @@ export default function PurchasesPage() {
   const [references, setReferences] = useState<Record<number, string>>({})
   const [pixOpenId, setPixOpenId] = useState<number | null>(null)
   const [cancellingId, setCancellingId] = useState<number | null>(null)
+  const [termsModalOpen, setTermsModalOpen] = useState(false)
 
   useEffect(() => {
     if (!isLoading && user?.role === "admin") router.replace("/orders")
@@ -135,14 +142,23 @@ export default function PurchasesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-zinc-900">Minhas compras</h1>
-          <p className="mt-1 text-sm text-zinc-500">Acompanhe seus pedidos e pagamentos</p>
+          <p className="mt-1 text-sm text-zinc-500">Acompanhe seus pedidos, pagamentos e entrega</p>
         </div>
+        <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setTermsModalOpen(true)}
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition"
+        >
+          Ver garantia
+        </button>
         <button
           onClick={loadOrders}
           className="rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 transition"
         >
           Atualizar
         </button>
+        </div>
       </div>
 
       {loading ? (
@@ -188,6 +204,22 @@ export default function PurchasesPage() {
                   <div className="text-xs text-zinc-500">
                     Referencia informada: {order.payment_reference}
                   </div>
+                )}
+                {order.terms_version && (
+                  <div className="text-xs text-zinc-500">
+                    Termo aceito: v{order.terms_version}
+                  </div>
+                )}
+                {order.status === "paid" && (
+                  <p className="w-full text-xs text-amber-800">
+                    Pagamento confirmado. Se nao receber em 7 dias uteis, guarde o comprovante e entre em contato com a loja.
+                  </p>
+                )}
+                {order.status === "delivered" && order.delivered_at && (
+                  <p className="w-full text-xs text-emerald-800">
+                    Entrega registrada em {formatDate(order.delivered_at)}
+                    {order.delivery_note ? ` · ${order.delivery_note}` : ""}
+                  </p>
                 )}
                 {order.status === "pending_payment" && order.pix_key && order.pix_txid && (
                   <div className="mt-4 w-full border-t border-zinc-100 pt-4">
@@ -257,6 +289,7 @@ export default function PurchasesPage() {
           {error}
         </div>
       )}
+      <PurchaseTermsModal open={termsModalOpen} onClose={() => setTermsModalOpen(false)} />
     </div>
   )
 }

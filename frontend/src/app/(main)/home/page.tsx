@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { PixQrCode } from "@/components/PixQrCode"
+import { PurchaseTermsModal } from "@/components/PurchaseTermsModal"
 import { useAuth } from "@/lib/auth-context"
+import { PURCHASE_TERMS_SUMMARY, PURCHASE_TERMS_VERSION } from "@/lib/purchase-terms"
 import {
   buildPixPayload,
   normalizePixPhoneKey,
@@ -48,7 +50,7 @@ interface OrderResponse {
   payment_reference?: string | null
 }
 
-type OrderStatus = "pending_payment" | "payment_reported" | "paid" | "cancelled"
+type OrderStatus = "pending_payment" | "payment_reported" | "paid" | "delivered" | "cancelled"
 
 function formatPrice(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
@@ -61,7 +63,9 @@ function unitPrice(p: Product) {
 function paymentStatusLabel(status: OrderStatus | null) {
   switch (status) {
     case "paid":
-      return "Pagamento confirmado"
+      return "Pagamento confirmado — aguardando entrega"
+    case "delivered":
+      return "Pedido entregue"
     case "payment_reported":
       return "Pagamento informado"
     case "pending_payment":
@@ -114,6 +118,9 @@ function CartDrawer({
   onClear,
   onCheckout,
   checkoutLoading,
+  termsAccepted,
+  onTermsAcceptedChange,
+  onOpenTerms,
 }: {
   items: CartItem[]
   onClose: () => void
@@ -122,6 +129,9 @@ function CartDrawer({
   onClear: () => void
   onCheckout: (total: number) => void
   checkoutLoading: boolean
+  termsAccepted: boolean
+  onTermsAcceptedChange: (value: boolean) => void
+  onOpenTerms: () => void
 }) {
   const total = items.reduce((s, i) => s + unitPrice(i.product) * i.qty, 0)
   const totalItems = items.reduce((s, i) => s + i.qty, 0)
@@ -264,8 +274,36 @@ function CartDrawer({
               <span className="text-sm text-zinc-500">Total</span>
               <span className="text-base font-bold text-zinc-900">{formatPrice(total)}</span>
             </div>
+            <div className="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+              {PURCHASE_TERMS_SUMMARY}
+            </div>
+            <label className="flex items-start gap-2 text-xs text-zinc-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => onTermsAcceptedChange(e.target.checked)}
+                className="mt-0.5 rounded border-zinc-300"
+              />
+              <span>
+                Li e aceito o{" "}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    onOpenTerms()
+                  }}
+                  className="font-semibold text-zinc-900 underline underline-offset-2"
+                >
+                  Termo de Compra e Garantia de Entrega
+                </button>
+              </span>
+            </label>
             <button
-              disabled={checkoutLoading || items.some((i) => i.qty > i.product.available_stock)}
+              disabled={
+                checkoutLoading ||
+                !termsAccepted ||
+                items.some((i) => i.qty > i.product.available_stock)
+              }
               onClick={() => onCheckout(total)}
               className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -317,6 +355,7 @@ function PaymentModal({
   const canConfirm = Boolean(orderId) && status === "pending_payment"
   const isReported = status === "payment_reported"
   const isPaid = status === "paid"
+  const isDelivered = status === "delivered"
   const payload =
     normalizedPhone && pixTxid
       ? buildPixPayload({
@@ -421,8 +460,16 @@ function PaymentModal({
               </p>
             )}
             {isPaid && (
-              <p className="mt-3 text-xs text-emerald-700">Pagamento confirmado.</p>
+              <p className="mt-3 text-xs text-emerald-700">
+                Pagamento confirmado. A loja deve registrar a entrega em ate 7 dias uteis.
+              </p>
             )}
+            {isDelivered && (
+              <p className="mt-3 text-xs text-emerald-700">Pedido entregue conforme termos aceitos.</p>
+            )}
+            <p className="mt-3 text-xs text-zinc-500 border-t border-zinc-100 pt-3">
+              Compra protegida pelo termo vinculado a este pedido (versao {PURCHASE_TERMS_VERSION}).
+            </p>
             {canConfirm && (
               <div className="mt-4">
                 <label className="text-xs font-medium text-zinc-600">Referencia do pagamento</label>
@@ -831,6 +878,8 @@ export default function HomePage() {
   const [paymentStatus, setPaymentStatus] = useState<OrderStatus | null>(null)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [confirmingPayment, setConfirmingPayment] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [termsModalOpen, setTermsModalOpen] = useState(false)
 
   const showToast = useCallback((message: string) => {
     setToast(message)
@@ -966,6 +1015,8 @@ export default function HomePage() {
             product_id: item.product.id,
             quantity: item.qty,
           })),
+          accept_terms: true,
+          terms_version: PURCHASE_TERMS_VERSION,
         }),
       })
 
@@ -1190,8 +1241,12 @@ export default function HomePage() {
           onClear={clearCart}
           onCheckout={openCheckout}
           checkoutLoading={checkoutLoading}
+          termsAccepted={termsAccepted}
+          onTermsAcceptedChange={setTermsAccepted}
+          onOpenTerms={() => setTermsModalOpen(true)}
         />
       )}
+      <PurchaseTermsModal open={termsModalOpen} onClose={() => setTermsModalOpen(false)} />
       {paymentOpen && (
         <PaymentModal
           total={paymentTotal}

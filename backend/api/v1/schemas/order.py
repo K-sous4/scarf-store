@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List, Literal
 
-OrderStatus = Literal["pending_payment", "payment_reported", "paid", "cancelled"]
+OrderStatus = Literal["pending_payment", "payment_reported", "paid", "delivered", "cancelled"]
 
 
 class OrderItemCreate(BaseModel):
@@ -14,6 +14,20 @@ class OrderItemCreate(BaseModel):
 class OrderCreateRequest(BaseModel):
     items: List[OrderItemCreate] = Field(..., min_length=1)
     payment_method: Literal["pix"] = "pix"
+    accept_terms: bool = False
+    terms_version: str = Field(..., min_length=1, max_length=20)
+
+
+class OrderMarkDeliveredRequest(BaseModel):
+    delivery_note: str | None = Field(None, max_length=255)
+
+
+class PurchaseTermsResponse(BaseModel):
+    version: str
+    title: str
+    summary: str
+    clauses: List[str]
+    delivery_commitment_days: int
 
 
 class OrderConfirmPaymentRequest(BaseModel):
@@ -54,6 +68,10 @@ class OrderResponse(BaseModel):
     payment_reference: Optional[str] = None
     payment_reported_at: Optional[datetime]
     paid_at: Optional[datetime]
+    terms_version: Optional[str] = None
+    terms_accepted_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    delivery_note: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     items: List[OrderItemResponse]

@@ -7,9 +7,17 @@ from api.v1.dependencies import get_current_user, get_current_admin
 from api.v1.schemas.order import (
     OrderCreateRequest,
     OrderConfirmPaymentRequest,
+    OrderMarkDeliveredRequest,
     OrderResponse,
     OrderAdminResponse,
     OrderStatus,
+    PurchaseTermsResponse,
+)
+from config.purchase_terms import (
+    PURCHASE_TERMS_VERSION,
+    PURCHASE_TERMS_TITLE,
+    PURCHASE_TERMS_CLAUSES,
+    DELIVERY_COMMITMENT_DAYS,
 )
 from database.db import get_db
 from models.order import Order, OrderItem
@@ -22,7 +30,24 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 ORDER_STATUS_PENDING = "pending_payment"
 ORDER_STATUS_REPORTED = "payment_reported"
 ORDER_STATUS_PAID = "paid"
+ORDER_STATUS_DELIVERED = "delivered"
 ORDER_STATUS_CANCELLED = "cancelled"
+
+PURCHASE_TERMS_SUMMARY = (
+    "Pagamento vinculado ao pedido, confirmacao em duas etapas e registro de entrega "
+    f"pela loja em ate {DELIVERY_COMMITMENT_DAYS} dias uteis apos o pagamento confirmado."
+)
+
+
+@router.get("/purchase-terms", response_model=PurchaseTermsResponse)
+async def get_purchase_terms():
+    return PurchaseTermsResponse(
+        version=PURCHASE_TERMS_VERSION,
+        title=PURCHASE_TERMS_TITLE,
+        summary=PURCHASE_TERMS_SUMMARY,
+        clauses=PURCHASE_TERMS_CLAUSES,
+        delivery_commitment_days=DELIVERY_COMMITMENT_DAYS,
+    )
 
 
 def _to_decimal(value: Decimal | int | float) -> Decimal:
@@ -55,6 +80,17 @@ async def create_order(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Pagamento PIX nao configurado",
+        )
+
+    if not payload.accept_terms:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Aceite o Termo de Compra e Garantia de Entrega para continuar",
+        )
+    if payload.terms_version != PURCHASE_TERMS_VERSION:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Versao dos termos desatualizada. Atualize a pagina e tente novamente",
         )
 
     if not payload.items:
@@ -119,6 +155,8 @@ async def create_order(
         payment_method=(payload.payment_method or "pix"),
         total_amount=total_amount.quantize(Decimal("0.01")),
         pix_key=pix_key,
+        terms_version=PURCHASE_TERMS_VERSION,
+        terms_accepted_at=datetime.utcnow(),
     )
     db.add(order)
     db.flush()
@@ -201,8 +239,8 @@ async def cancel_order(
     if order.user_id != current_user.id and current_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
 
-    if order.status == ORDER_STATUS_PAID:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pedido ja pago")
+    if order.status in (ORDER_STATUS_PAID, ORDER_STATUS_DELIVERED):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pedido ja pago ou entregue")
     if order.status == ORDER_STATUS_CANCELLED:
         return order
 
@@ -229,7 +267,7 @@ async def confirm_payment(
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido nao encontrado")
 
-    if order.status == ORDER_STATUS_PAID:
+    if order.status in (ORDER_STATUS_PAID, ORDER_STATUS_DELIVERED):
         return order
     if order.status == ORDER_STATUS_CANCELLED:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pedido cancelado")
@@ -265,7 +303,7 @@ async def mark_paid(
 
     if order.status == ORDER_STATUS_CANCELLED:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pedido cancelado")
-    if order.status == ORDER_STATUS_PAID:
+    if order.status in (ORDER_STATUS_PAID, ORDER_STATUS_DELIVERED):
         return order
 
     if order.status != ORDER_STATUS_REPORTED:
@@ -293,6 +331,42 @@ async def mark_paid(
     order.status = ORDER_STATUS_PAID
     order.paid_at = datetime.utcnow()
     order.paid_by_admin_id = current_admin.id
+
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+@router.post("/{order_id}/mark-delivered", response_model=OrderAdminResponse)
+async def mark_delivered(
+    order_id: int,
+    payload: OrderMarkDeliveredRequest,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    order = (
+        db.query(Order)
+        .options(selectinload(Order.items), selectinload(Order.user))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido nao encontrado")
+
+    if order.status == ORDER_STATUS_CANCELLED:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pedido cancelado")
+    if order.status == ORDER_STATUS_DELIVERED:
+        return order
+    if order.status != ORDER_STATUS_PAID:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Confirme o pagamento antes de registrar a entrega",
+        )
+
+    order.status = ORDER_STATUS_DELIVERED
+    order.delivered_at = datetime.utcnow()
+    order.delivered_by_admin_id = current_admin.id
+    order.delivery_note = (payload.delivery_note or "").strip() or None
 
     db.commit()
     db.refresh(order)
