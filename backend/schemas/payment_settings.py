@@ -1,9 +1,10 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 
 
 class PaymentSettingsBase(BaseModel):
     phone_number: str | None = None
+    delivery_commitment_days: int = Field(default=7, ge=1, le=60)
 
 
 class PaymentSettingsUpdate(PaymentSettingsBase):
@@ -19,5 +20,6 @@ class PaymentSettingsResponse(PaymentSettingsBase):
         from_attributes = True
 
 
-class PaymentSettingsPublic(PaymentSettingsBase):
-    pass
+class PaymentSettingsPublic(BaseModel):
+    phone_number: str | None = None
+    delivery_commitment_days: int = 7

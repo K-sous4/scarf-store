@@ -41,6 +41,7 @@ interface User {
 interface PaymentSettings {
   id: number
   phone_number: string | null
+  delivery_commitment_days: number
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -899,14 +900,17 @@ function PaymentTab() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [form, setForm] = useState({ phone_number: "" })
+  const [form, setForm] = useState({ phone_number: "", delivery_commitment_days: 7 })
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const data = await api.get<PaymentSettings>("/payment-settings/")
-      setForm({ phone_number: data.phone_number ?? "" })
+      setForm({
+        phone_number: data.phone_number ?? "",
+        delivery_commitment_days: data.delivery_commitment_days ?? 7,
+      })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erro ao carregar")
     } finally {
@@ -925,8 +929,12 @@ function PaymentTab() {
       const cleaned = form.phone_number.trim()
       const data = await api.put<PaymentSettings>("/payment-settings/", {
         phone_number: cleaned ? cleaned : null,
+        delivery_commitment_days: form.delivery_commitment_days,
       })
-      setForm({ phone_number: data.phone_number ?? "" })
+      setForm({
+        phone_number: data.phone_number ?? "",
+        delivery_commitment_days: data.delivery_commitment_days ?? 7,
+      })
       setSuccess(true)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erro ao salvar")
@@ -940,7 +948,7 @@ function PaymentTab() {
       <div className="rounded-xl border border-zinc-200 bg-white p-6">
         <h3 className="text-base font-semibold text-zinc-900">Pagamento</h3>
         <p className="mt-1 text-sm text-zinc-500">
-          Cadastre o numero de telefone usado para contato sobre pagamentos.
+          Telefone PIX e prazo de entrega exibidos nos termos de compra e no checkout.
         </p>
 
         {loading ? (
@@ -959,6 +967,27 @@ function PaymentTab() {
               />
             </Field>
 
+            <Field label="Prazo de entrega (dias úteis)">
+              <input
+                type="number"
+                min={1}
+                max={60}
+                className={inputCls}
+                value={form.delivery_commitment_days}
+                onChange={(e) => {
+                  const value = Number(e.target.value)
+                  setForm((f) => ({
+                    ...f,
+                    delivery_commitment_days: Number.isFinite(value) ? value : 7,
+                  }))
+                  setSuccess(false)
+                }}
+              />
+              <p className="mt-1 text-xs text-zinc-400">
+                Usado no termo de garantia e nas mensagens para o cliente (1 a 60 dias).
+              </p>
+            </Field>
+
             {error && (
               <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
                 {error}
@@ -967,7 +996,7 @@ function PaymentTab() {
 
             {success && !error && (
               <p className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700">
-                Telefone atualizado com sucesso.
+                Configuracoes de pagamento atualizadas.
               </p>
             )}
 

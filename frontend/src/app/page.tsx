@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { ApiError } from "@/lib/api"
+import { ProductPreviewModal } from "@/components/ProductPreviewModal"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -54,13 +55,23 @@ function pickPrimaryImage(images?: string[] | null) {
 
 // ── Product Card ──────────────────────────────────────────────────────────────
 
-function ProductCard({ product }: { product: Product }) {
+function ProductCard({
+  product,
+  onOpen,
+}: {
+  product: Product
+  onOpen: (product: Product) => void
+}) {
   const displayPrice = product.discount_price ?? product.price
   const hasDiscount = product.discount_percentage > 0
   const image = resolveImageUrl(pickPrimaryImage(product.images)) ?? `https://placehold.co/400x300/f4f4f5/71717a?text=${encodeURIComponent(product.name)}`
 
   return (
-    <div className="group flex-shrink-0 w-64 rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
+    <button
+      type="button"
+      onClick={() => onOpen(product)}
+      className="group flex-shrink-0 w-64 rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 text-left"
+    >
       {/* Image */}
       <div className="relative h-48 bg-zinc-100 overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -111,13 +122,21 @@ function ProductCard({ product }: { product: Product }) {
           <p className="mt-1 text-[11px] text-zinc-400">{product.color} · {product.material ?? ""}</p>
         )}
       </div>
-    </div>
+    </button>
   )
 }
 
 // ── Carousel ──────────────────────────────────────────────────────────────────
 
-function Carousel({ title, products }: { title: string; products: Product[] }) {
+function Carousel({
+  title,
+  products,
+  onProductOpen,
+}: {
+  title: string
+  products: Product[]
+  onProductOpen: (product: Product) => void
+}) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
@@ -185,7 +204,7 @@ function Carousel({ title, products }: { title: string; products: Product[] }) {
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
+            <ProductCard key={p.id} product={p} onOpen={onProductOpen} />
           ))}
         </div>
       </div>
@@ -358,6 +377,8 @@ export default function LandingPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [showSignUp, setShowSignUp] = useState(false)
+  const [previewProduct, setPreviewProduct] = useState<Product | null>(null)
+  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1"
 
   useEffect(() => {
     const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1"
@@ -498,13 +519,13 @@ export default function LandingPage() {
       {!loading && (
         <div id="catalogo">
           {featured.length > 0 && (
-            <Carousel title="Destaques" products={featured} />
+            <Carousel title="Destaques" products={featured} onProductOpen={setPreviewProduct} />
           )}
           {newest.length > 0 && (
-            <Carousel title="Novidades" products={newest} />
+            <Carousel title="Novidades" products={newest} onProductOpen={setPreviewProduct} />
           )}
           {Object.entries(byCategory).map(([category, items]) => (
-            <Carousel key={category} title={category} products={items} />
+            <Carousel key={category} title={category} products={items} onProductOpen={setPreviewProduct} />
           ))}
           {products.length === 0 && (
             <div className="py-24 text-center text-zinc-400">
@@ -539,6 +560,13 @@ export default function LandingPage() {
 
       {/* ── Sign-up Modal ───────────────────────────────────────────────────── */}
       {showSignUp && <SignUpModal onClose={() => setShowSignUp(false)} />}
+      {previewProduct && (
+        <ProductPreviewModal
+          product={previewProduct}
+          apiBase={apiBase}
+          onClose={() => setPreviewProduct(null)}
+        />
+      )}
     </div>
   )
 }

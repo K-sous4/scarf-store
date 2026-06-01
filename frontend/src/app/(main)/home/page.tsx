@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { PixQrCode } from "@/components/PixQrCode"
 import { PurchaseTermsModal } from "@/components/PurchaseTermsModal"
 import { useAuth } from "@/lib/auth-context"
-import { PURCHASE_TERMS_SUMMARY, PURCHASE_TERMS_VERSION } from "@/lib/purchase-terms"
+import { usePurchaseTerms } from "@/lib/use-purchase-terms"
 import {
   buildPixPayload,
   normalizePixPhoneKey,
@@ -121,6 +121,7 @@ function CartDrawer({
   termsAccepted,
   onTermsAcceptedChange,
   onOpenTerms,
+  termsSummary,
 }: {
   items: CartItem[]
   onClose: () => void
@@ -132,6 +133,7 @@ function CartDrawer({
   termsAccepted: boolean
   onTermsAcceptedChange: (value: boolean) => void
   onOpenTerms: () => void
+  termsSummary: string
 }) {
   const total = items.reduce((s, i) => s + unitPrice(i.product) * i.qty, 0)
   const totalItems = items.reduce((s, i) => s + i.qty, 0)
@@ -275,7 +277,7 @@ function CartDrawer({
               <span className="text-base font-bold text-zinc-900">{formatPrice(total)}</span>
             </div>
             <div className="rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-900">
-              {PURCHASE_TERMS_SUMMARY}
+              {termsSummary}
             </div>
             <label className="flex items-start gap-2 text-xs text-zinc-600 cursor-pointer">
               <input
@@ -461,14 +463,14 @@ function PaymentModal({
             )}
             {isPaid && (
               <p className="mt-3 text-xs text-emerald-700">
-                Pagamento confirmado. A loja deve registrar a entrega em ate 7 dias uteis.
+                Pagamento confirmado. A loja deve registrar a entrega no prazo do termo.
               </p>
             )}
             {isDelivered && (
               <p className="mt-3 text-xs text-emerald-700">Pedido entregue conforme termos aceitos.</p>
             )}
             <p className="mt-3 text-xs text-zinc-500 border-t border-zinc-100 pt-3">
-              Compra protegida pelo termo vinculado a este pedido (versao {PURCHASE_TERMS_VERSION}).
+              Compra protegida pelo termo vinculado a este pedido.
             </p>
             {canConfirm && (
               <div className="mt-4">
@@ -501,10 +503,12 @@ function ProductModal({
   product,
   onClose,
   onAddToCart,
+  deliveryDays,
 }: {
   product: Product
   onClose: () => void
   onAddToCart: (p: Product) => void
+  deliveryDays: number
 }) {
   const images = modalImages(product)
   const [activeIndex, setActiveIndex] = useState(0)
@@ -539,17 +543,17 @@ function ProductModal({
         className="absolute inset-0 h-full w-full cursor-default"
       />
       <div
-        className="relative z-10 w-full max-w-5xl max-h-[85vh] overflow-y-auto overscroll-contain rounded-3xl bg-white shadow-2xl"
+        className="relative z-10 w-full max-w-2xl max-h-[85vh] overflow-y-auto overscroll-contain rounded-2xl bg-white shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="grid grid-cols-1 lg:grid-cols-[1.1fr,0.9fr]">
-          <div className="relative bg-zinc-100 max-h-[85vh]">
+        <div className="flex flex-col">
+          <div className="relative bg-zinc-100 h-52 sm:h-56">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.85),_rgba(255,255,255,0))]" />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={images[Math.min(activeIndex, images.length - 1)]}
               alt={product.name}
-              className="h-full min-h-[280px] w-full object-cover"
+              className="h-full w-full object-cover"
             />
             <div className="absolute left-4 top-4 flex items-center gap-2">
               {product.is_new && (
@@ -582,13 +586,13 @@ function ProductModal({
               </div>
             )}
           </div>
-          <div className="flex flex-col gap-6 p-6 lg:p-8">
+          <div className="flex flex-col gap-4 p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-widest text-zinc-400">
                   {product.category}
                 </p>
-                <h2 className="mt-2 text-2xl font-semibold text-zinc-900">
+                <h2 className="mt-2 text-xl font-semibold text-zinc-900">
                   {product.name}
                 </h2>
                 {product.short_description && (
@@ -608,7 +612,7 @@ function ProductModal({
             </div>
 
             <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-semibold text-zinc-900">
+              <span className="text-2xl font-semibold text-zinc-900">
                 {formatPrice(unitPrice(product))}
               </span>
               {hasDiscount && (
@@ -636,7 +640,9 @@ function ProductModal({
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-wide text-zinc-400">Entrega</p>
-                  <p className="mt-1 font-medium text-zinc-900">Envio em 24h</p>
+                  <p className="mt-1 font-medium text-zinc-900">
+                    Até {deliveryDays} dias úteis após pagamento
+                  </p>
                 </div>
               </div>
             </div>
@@ -880,6 +886,11 @@ export default function HomePage() {
   const [confirmingPayment, setConfirmingPayment] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [termsModalOpen, setTermsModalOpen] = useState(false)
+  const { terms: purchaseTerms } = usePurchaseTerms()
+
+  useEffect(() => {
+    setTermsAccepted(false)
+  }, [purchaseTerms.version])
 
   const showToast = useCallback((message: string) => {
     setToast(message)
@@ -1016,7 +1027,7 @@ export default function HomePage() {
             quantity: item.qty,
           })),
           accept_terms: true,
-          terms_version: PURCHASE_TERMS_VERSION,
+          terms_version: purchaseTerms.version,
         }),
       })
 
@@ -1038,7 +1049,7 @@ export default function HomePage() {
     } finally {
       setCheckoutLoading(false)
     }
-  }, [apiBase, cartItems, fetchPaymentPhone, showToast])
+  }, [apiBase, cartItems, fetchPaymentPhone, purchaseTerms.version, showToast])
 
   const closeCheckout = useCallback(() => {
     setPaymentOpen(false)
@@ -1244,9 +1255,14 @@ export default function HomePage() {
           termsAccepted={termsAccepted}
           onTermsAcceptedChange={setTermsAccepted}
           onOpenTerms={() => setTermsModalOpen(true)}
+          termsSummary={purchaseTerms.summary}
         />
       )}
-      <PurchaseTermsModal open={termsModalOpen} onClose={() => setTermsModalOpen(false)} />
+      <PurchaseTermsModal
+        open={termsModalOpen}
+        onClose={() => setTermsModalOpen(false)}
+        terms={purchaseTerms}
+      />
       {paymentOpen && (
         <PaymentModal
           total={paymentTotal}
@@ -1265,6 +1281,7 @@ export default function HomePage() {
       {selectedProduct && (
         <ProductModal
           product={selectedProduct}
+          deliveryDays={purchaseTerms.delivery_commitment_days}
           onClose={() => setSelectedProduct(null)}
           onAddToCart={(product) => {
             addToCart(product)

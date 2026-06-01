@@ -12,6 +12,7 @@ import {
   PIX_MERCHANT_NAME,
 } from "@/lib/pix"
 import { PurchaseTermsModal } from "@/components/PurchaseTermsModal"
+import { usePurchaseTerms } from "@/lib/use-purchase-terms"
 
 interface OrderItem {
   product_id: number
@@ -75,6 +76,7 @@ export default function PurchasesPage() {
   const [pixOpenId, setPixOpenId] = useState<number | null>(null)
   const [cancellingId, setCancellingId] = useState<number | null>(null)
   const [termsModalOpen, setTermsModalOpen] = useState(false)
+  const { terms: purchaseTerms } = usePurchaseTerms()
 
   useEffect(() => {
     if (!isLoading && user?.role === "admin") router.replace("/orders")
@@ -212,7 +214,8 @@ export default function PurchasesPage() {
                 )}
                 {order.status === "paid" && (
                   <p className="w-full text-xs text-amber-800">
-                    Pagamento confirmado. Se nao receber em 7 dias uteis, guarde o comprovante e entre em contato com a loja.
+                    Pagamento confirmado. Se nao receber em {purchaseTerms.delivery_commitment_days} dias
+                    uteis, guarde o comprovante e entre em contato com a loja.
                   </p>
                 )}
                 {order.status === "delivered" && order.delivered_at && (
@@ -289,7 +292,11 @@ export default function PurchasesPage() {
           {error}
         </div>
       )}
-      <PurchaseTermsModal open={termsModalOpen} onClose={() => setTermsModalOpen(false)} />
+      <PurchaseTermsModal
+        open={termsModalOpen}
+        onClose={() => setTermsModalOpen(false)}
+        terms={purchaseTerms}
+      />
     </div>
   )
 }

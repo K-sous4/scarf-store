@@ -1,17 +1,16 @@
 "use client"
 
-import {
-  PURCHASE_TERMS_CLAUSES,
-  PURCHASE_TERMS_TITLE,
-  PURCHASE_TERMS_VERSION,
-} from "@/lib/purchase-terms"
+import { PURCHASE_TERMS_TITLE } from "@/lib/purchase-terms"
+import type { PurchaseTermsData } from "@/lib/use-purchase-terms"
 
 export function PurchaseTermsModal({
   open,
   onClose,
+  terms,
 }: {
   open: boolean
   onClose: () => void
+  terms: PurchaseTermsData
 }) {
   if (!open) return null
 
@@ -29,10 +28,12 @@ export function PurchaseTermsModal({
       >
         <div className="border-b border-zinc-100 px-6 py-4">
           <h2 className="text-lg font-semibold text-zinc-900">{PURCHASE_TERMS_TITLE}</h2>
-          <p className="mt-1 text-xs text-zinc-500">Versão {PURCHASE_TERMS_VERSION}</p>
+          <p className="mt-1 text-xs text-zinc-500">
+            Versão {terms.version} · Prazo de entrega: {terms.delivery_commitment_days} dias úteis
+          </p>
         </div>
         <ol className="flex-1 overflow-y-auto px-6 py-4 space-y-3 text-sm text-zinc-700 list-decimal list-inside">
-          {PURCHASE_TERMS_CLAUSES.map((clause) => (
+          {terms.clauses.map((clause) => (
             <li key={clause} className="leading-relaxed">
               {clause}
             </li>

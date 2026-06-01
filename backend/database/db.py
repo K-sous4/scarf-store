@@ -44,6 +44,7 @@ def ensure_order_columns():
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_by_admin_id INTEGER REFERENCES users(id)",
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_username VARCHAR(255)",
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_email VARCHAR(255)",
+        "ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS delivery_commitment_days INTEGER DEFAULT 7",
     ]
     backfill = """
         UPDATE orders o

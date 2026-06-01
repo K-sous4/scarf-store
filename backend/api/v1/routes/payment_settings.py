@@ -23,7 +23,7 @@ async def get_payment_settings(
 ):
     settings = db.query(PaymentSettings).first()
     if not settings:
-        settings = PaymentSettings(phone_number=None)
+        settings = PaymentSettings(phone_number=None, delivery_commitment_days=7)
         db.add(settings)
         db.commit()
         db.refresh(settings)
@@ -34,8 +34,11 @@ async def get_payment_settings(
 async def get_payment_settings_public(db: Session = Depends(get_db)):
     settings = db.query(PaymentSettings).first()
     if not settings:
-        return {"phone_number": None}
-    return {"phone_number": settings.phone_number}
+        return {"phone_number": None, "delivery_commitment_days": 7}
+    return {
+        "phone_number": settings.phone_number,
+        "delivery_commitment_days": settings.delivery_commitment_days or 7,
+    }
 
 
 @router.put("/", response_model=PaymentSettingsResponse)
@@ -47,10 +50,14 @@ async def update_payment_settings(
     settings = db.query(PaymentSettings).first()
     phone_number = _normalize_phone(payload.phone_number)
     if not settings:
-        settings = PaymentSettings(phone_number=phone_number)
+        settings = PaymentSettings(
+            phone_number=phone_number,
+            delivery_commitment_days=payload.delivery_commitment_days,
+        )
         db.add(settings)
     else:
         settings.phone_number = phone_number
+        settings.delivery_commitment_days = payload.delivery_commitment_days
 
     db.commit()
     db.refresh(settings)

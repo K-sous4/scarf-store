@@ -14,10 +14,11 @@ from api.v1.schemas.order import (
     PurchaseTermsResponse,
 )
 from config.purchase_terms import (
-    PURCHASE_TERMS_VERSION,
     PURCHASE_TERMS_TITLE,
-    PURCHASE_TERMS_CLAUSES,
-    DELIVERY_COMMITMENT_DAYS,
+    build_clauses,
+    build_summary,
+    normalize_delivery_days,
+    terms_version_for_days,
 )
 from database.db import get_db
 from models.order import Order, OrderItem
@@ -33,20 +34,21 @@ ORDER_STATUS_PAID = "paid"
 ORDER_STATUS_DELIVERED = "delivered"
 ORDER_STATUS_CANCELLED = "cancelled"
 
-PURCHASE_TERMS_SUMMARY = (
-    "Pagamento vinculado ao pedido, confirmacao em duas etapas e registro de entrega "
-    f"pela loja em ate {DELIVERY_COMMITMENT_DAYS} dias uteis apos o pagamento confirmado."
-)
+def _delivery_days_from_settings(db: Session) -> int:
+    settings = db.query(PaymentSettings).first()
+    raw = settings.delivery_commitment_days if settings else None
+    return normalize_delivery_days(raw)
 
 
 @router.get("/purchase-terms", response_model=PurchaseTermsResponse)
-async def get_purchase_terms():
+async def get_purchase_terms(db: Session = Depends(get_db)):
+    days = _delivery_days_from_settings(db)
     return PurchaseTermsResponse(
-        version=PURCHASE_TERMS_VERSION,
+        version=terms_version_for_days(days),
         title=PURCHASE_TERMS_TITLE,
-        summary=PURCHASE_TERMS_SUMMARY,
-        clauses=PURCHASE_TERMS_CLAUSES,
-        delivery_commitment_days=DELIVERY_COMMITMENT_DAYS,
+        summary=build_summary(days),
+        clauses=build_clauses(days),
+        delivery_commitment_days=days,
     )
 
 
@@ -87,7 +89,9 @@ async def create_order(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Aceite o Termo de Compra e Garantia de Entrega para continuar",
         )
-    if payload.terms_version != PURCHASE_TERMS_VERSION:
+    days = _delivery_days_from_settings(db)
+    expected_terms_version = terms_version_for_days(days)
+    if payload.terms_version != expected_terms_version:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Versao dos termos desatualizada. Atualize a pagina e tente novamente",
@@ -157,7 +161,7 @@ async def create_order(
         payment_method=(payload.payment_method or "pix"),
         total_amount=total_amount.quantize(Decimal("0.01")),
         pix_key=pix_key,
-        terms_version=PURCHASE_TERMS_VERSION,
+        terms_version=expected_terms_version,
         terms_accepted_at=datetime.utcnow(),
     )
     db.add(order)
