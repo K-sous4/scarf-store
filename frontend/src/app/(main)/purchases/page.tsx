@@ -2,8 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { PixQrCode } from "@/components/PixQrCode"
 import { api, ApiError } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
+import {
+  buildPixPayload,
+  normalizePixPhoneKey,
+  PIX_MERCHANT_CITY,
+  PIX_MERCHANT_NAME,
+} from "@/lib/pix"
 
 interface OrderItem {
   product_id: number
@@ -22,6 +29,7 @@ interface Order {
   total_amount: number
   created_at: string
   pix_txid?: string | null
+  pix_key?: string | null
   payment_reference?: string | null
   items: OrderItem[]
 }
@@ -58,6 +66,7 @@ export default function PurchasesPage() {
   const [error, setError] = useState<string | null>(null)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [references, setReferences] = useState<Record<number, string>>({})
+  const [pixOpenId, setPixOpenId] = useState<number | null>(null)
 
   useEffect(() => {
     if (!isLoading && user?.role === "admin") router.replace("/orders")
@@ -163,6 +172,31 @@ export default function PurchasesPage() {
                 {order.payment_reference && (
                   <div className="text-xs text-zinc-500">
                     Referencia informada: {order.payment_reference}
+                  </div>
+                )}
+                {order.status === "pending_payment" && order.pix_key && order.pix_txid && (
+                  <div className="mt-4 w-full border-t border-zinc-100 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setPixOpenId(pixOpenId === order.id ? null : order.id)}
+                      className="rounded-lg border border-zinc-200 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 transition"
+                    >
+                      {pixOpenId === order.id ? "Ocultar PIX" : "Ver QR PIX"}
+                    </button>
+                    {pixOpenId === order.id && (
+                      <div className="mt-4 flex flex-col items-center gap-3">
+                        <PixQrCode
+                          payload={buildPixPayload({
+                            key: normalizePixPhoneKey(order.pix_key),
+                            merchantName: PIX_MERCHANT_NAME,
+                            merchantCity: PIX_MERCHANT_CITY,
+                            amount: order.total_amount,
+                            txid: order.pix_txid,
+                          })}
+                        />
+                        <p className="text-xs text-zinc-500">TXID: {order.pix_txid}</p>
+                      </div>
+                    )}
                   </div>
                 )}
                 {order.status === "pending_payment" && (
