@@ -17,8 +17,31 @@ import {
 const inputClass =
   "w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-300"
 
+function validateProfileForm(
+  shipping: ShippingAddress,
+  newPassword: string,
+  currentPassword: string
+): string | null {
+  if (newPassword) {
+    if (!currentPassword) return "Informe a senha atual para alterar a senha."
+    if (newPassword.length < 6) return "A nova senha deve ter pelo menos 6 caracteres."
+    if (currentPassword.length < 6) return "A senha atual parece invalida."
+  }
+
+  const cepDigits = shipping.postal_code.replace(/\D/g, "")
+  if (cepDigits.length > 0 && cepDigits.length !== 8) {
+    return "CEP deve ter 8 digitos."
+  }
+  const state = shipping.state.trim()
+  if (state.length > 0 && state.length !== 2) {
+    return "UF deve ter 2 letras (ex: SP)."
+  }
+
+  return null
+}
+
 export default function ProfilePage() {
-  const { user, isLoading: authLoading } = useAuth()
+  const { user, isLoading: authLoading, refreshUser } = useAuth()
   const router = useRouter()
 
   const [loading, setLoading] = useState(true)
@@ -57,12 +80,20 @@ export default function ProfilePage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
+    const validationError = validateProfileForm(shipping, newPassword, currentPassword)
+    if (validationError) {
+      setError(validationError)
+      setSuccess(null)
+      return
+    }
+
     setSaving(true)
     setError(null)
     setSuccess(null)
+    const changingPassword = Boolean(newPassword)
     try {
       const body: Record<string, string | null> = {
-        username: username.trim() || undefined,
+        username: username.trim(),
         email: email.trim() || null,
         full_name: shipping.recipient_name.trim() || null,
         phone: shipping.phone.trim() || null,
@@ -72,17 +103,36 @@ export default function ProfilePage() {
         complement: shipping.complement?.trim() || null,
         neighborhood: shipping.neighborhood.trim() || null,
         city: shipping.city.trim() || null,
-        state: shipping.state.trim() || null,
+        state: shipping.state.trim().toUpperCase() || null,
       }
-      if (newPassword) {
+      if (changingPassword) {
         body.current_password = currentPassword
         body.new_password = newPassword
       }
       await api.put<UserProfile>("/users/me", body)
+
+      if (changingPassword) {
+        setCurrentPassword("")
+        setNewPassword("")
+        sessionStorage.setItem(
+          "auth_notice",
+          "Senha alterada com sucesso. Entre com a nova senha."
+        )
+        try {
+          await api.post("/auth/logout")
+        } catch {
+          /* sessao ja invalidada no servidor */
+        }
+        await refreshUser()
+        router.replace("/login?next=/profile")
+        return
+      }
+
       setSuccess("Perfil atualizado com sucesso.")
       setCurrentPassword("")
       setNewPassword("")
       await loadProfile()
+      await refreshUser()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Nao foi possivel salvar")
     } finally {

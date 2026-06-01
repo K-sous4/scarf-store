@@ -12,6 +12,7 @@ interface AuthContextValue {
   login: (credentials: LoginRequest) => Promise<void>
   signUp: (data: SignUpRequest) => Promise<void>
   logout: () => Promise<void>
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -76,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         signUp,
         logout,
+        refreshUser: fetchProfile,
       }}
     >
       {children}

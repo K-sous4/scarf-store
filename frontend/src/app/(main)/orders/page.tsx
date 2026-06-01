@@ -22,8 +22,6 @@ interface OrderItem {
 
 type OrderStatus = "pending_payment" | "payment_reported" | "paid" | "delivered" | "cancelled"
 
-import { formatShippingLine } from "@/types/shipping"
-
 interface Order {
   id: number
   user_id: number
