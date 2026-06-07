@@ -5,13 +5,14 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ShippingAddressForm } from "@/components/ShippingAddressForm"
 import { api, ApiError } from "@/lib/api"
+import { formatShippingForDisplay, maskUsername } from "@/lib/input-masks"
 import { PROFILE_UPDATED_EVENT } from "@/lib/use-user-profile"
 import { useAuth } from "@/lib/auth-context"
 import {
   EMPTY_SHIPPING,
   formatMissingShippingFields,
   isShippingComplete,
-  profileHasShippingAddress,
+  profileReadyForCheckout,
   profileToShipping,
   type ShippingAddress,
   type UserProfile,
@@ -56,6 +57,13 @@ function validateProfileForm(
   return null
 }
 
+function validateEmail(email: string): string | null {
+  const trimmed = email.trim()
+  if (!trimmed) return "Informe um e-mail válido."
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return "E-mail inválido."
+  return null
+}
+
 export default function ProfilePage() {
   const { user, isLoading: authLoading, refreshUser } = useAuth()
   const router = useRouter()
@@ -77,10 +85,10 @@ export default function ProfilePage() {
     setError(null)
     try {
       const data = await api.get<UserProfile>("/users/me")
-      setUsername(data.username)
+      setUsername(maskUsername(data.username))
       setEmail(data.email ?? "")
-      setShipping(profileToShipping(data))
-      setHasProfileAddress(profileHasShippingAddress(data))
+      setShipping(formatShippingForDisplay(profileToShipping(data)))
+      setHasProfileAddress(profileReadyForCheckout(data))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Nao foi possivel carregar o perfil")
     } finally {
@@ -98,7 +106,8 @@ export default function ProfilePage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    const validationError = validateProfileForm(shipping, newPassword, currentPassword)
+    const emailError = validateEmail(email)
+    const validationError = emailError ?? validateProfileForm(shipping, newPassword, currentPassword)
     if (validationError) {
       setError(validationError)
       setSuccess(null)
@@ -128,7 +137,7 @@ export default function ProfilePage() {
         body.new_password = newPassword
       }
       const updated = await api.put<UserProfile>("/users/me", body)
-      setHasProfileAddress(profileHasShippingAddress(updated))
+      setHasProfileAddress(profileReadyForCheckout(updated))
 
       if (changingPassword) {
         setCurrentPassword("")
@@ -169,52 +178,79 @@ export default function ProfilePage() {
     )
   }
 
+  const missingLabel = formatMissingShippingFields(shipping)
+  const emailMissing = !email.trim()
+
   return (
-    <div className="mx-auto max-w-2xl p-6">
+    <div className="mx-auto max-w-2xl p-6 pb-12">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-zinc-900">Meu perfil</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Atualize seus dados e o endereço usado nas entregas.
+          Dados da conta e endereço de entrega usados nos pedidos.
         </p>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-8">
+      {(!hasProfileAddress || emailMissing) && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {emailMissing && missingLabel ? (
+            <>
+              Para comprar, informe o <strong>e-mail</strong> e complete:{" "}
+              <strong>{missingLabel}</strong>.
+            </>
+          ) : emailMissing ? (
+            <>Para comprar, informe seu <strong>e-mail</strong> abaixo.</>
+          ) : (
+            <>
+              Para comprar, complete no endereço: <strong>{missingLabel}</strong>.
+            </>
+          )}
+        </div>
+      )}
+
+      <form onSubmit={handleSave} className="space-y-6">
         <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm space-y-4">
           <h2 className="text-sm font-semibold text-zinc-900">Conta</h2>
           <label>
-            <span className="mb-1 block text-xs text-zinc-500">Nome de usuário</span>
+            <span className="mb-1 block text-xs text-zinc-500">Nome de usuário *</span>
             <input
               className={inputClass}
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => setUsername(maskUsername(e.target.value))}
+              autoComplete="username"
               required
               minLength={3}
+              maxLength={50}
             />
+            <span className="mt-1 block text-xs text-zinc-400">
+              Apenas letras, números e underscore.
+            </span>
           </label>
           <label>
-            <span className="mb-1 block text-xs text-zinc-500">E-mail</span>
+            <span className="mb-1 block text-xs text-zinc-500">E-mail *</span>
             <input
               type="email"
               className={inputClass}
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value.trim().toLowerCase())}
               placeholder="seu@email.com"
+              autoComplete="email"
+              required
             />
             <span className="mt-1 block text-xs text-zinc-400">
-              Necessario para recuperar a senha caso voce esqueca.
+              Necessário para recuperar a senha e finalizar compras.
             </span>
           </label>
         </section>
 
         <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
           <ShippingAddressForm value={shipping} onChange={setShipping} />
-          {hasProfileAddress ? (
-            <p className="mt-3 text-xs text-emerald-700">
-              Endereço completo — você já pode finalizar compras na loja.
+          {hasProfileAddress && !emailMissing ? (
+            <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              Perfil completo — você já pode finalizar compras na loja.
             </p>
           ) : (
-            <p className="mt-3 text-xs text-amber-700">
-              Preencha o endereço completo para finalizar compras com entrega.
+            <p className="mt-4 text-xs text-zinc-500">
+              Campos com * são obrigatórios para entrega. O CEP preenche cidade, bairro e UF automaticamente.
             </p>
           )}
         </section>

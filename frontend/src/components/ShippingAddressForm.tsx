@@ -2,6 +2,15 @@
 
 import { useState } from "react"
 import { fetchViaCep } from "@/lib/viacep"
+import {
+  formatShippingForDisplay,
+  maskCep,
+  maskCityName,
+  maskHouseNumber,
+  maskPersonName,
+  maskPhone,
+  maskUf,
+} from "@/lib/input-masks"
 import type { ShippingAddress } from "@/types/shipping"
 
 const inputClass =
@@ -17,8 +26,8 @@ export function ShippingAddressForm({ value, onChange, compact }: ShippingAddres
   const [cepLoading, setCepLoading] = useState(false)
   const [cepHint, setCepHint] = useState<string | null>(null)
 
-  const set = (field: keyof ShippingAddress, raw: string) => {
-    onChange({ ...value, [field]: raw })
+  const update = (patch: Partial<ShippingAddress>) => {
+    onChange({ ...value, ...patch })
   }
 
   const lookupCep = async (rawCep: string) => {
@@ -35,15 +44,16 @@ export function ShippingAddressForm({ value, onChange, compact }: ShippingAddres
         setCepHint("CEP não encontrado. Preencha o endereço manualmente.")
         return
       }
-      onChange({
+      const filled = formatShippingForDisplay({
         ...value,
-        postal_code: data.cep || rawCep,
+        postal_code: maskCep(data.cep || rawCep),
         street: data.logradouro || value.street,
-        neighborhood: data.bairro || value.neighborhood,
-        city: data.localidade || value.city,
-        state: data.uf || value.state,
+        neighborhood: maskCityName(data.bairro || value.neighborhood),
+        city: maskCityName(data.localidade || value.city),
+        state: maskUf(data.uf || value.state),
         complement: value.complement || data.complemento || "",
       })
+      onChange(filled)
       setCepHint("Endereço preenchido pelo CEP. Confira e informe o número.")
     } finally {
       setCepLoading(false)
@@ -56,32 +66,44 @@ export function ShippingAddressForm({ value, onChange, compact }: ShippingAddres
         Endereço de entrega
       </p>
       <div className={compact ? "grid gap-2" : "grid gap-3 sm:grid-cols-2"}>
-        <label className={compact ? "sm:col-span-2" : "sm:col-span-2"}>
-          <span className="mb-1 block text-xs text-zinc-500">Nome do destinatário</span>
+        <label className="sm:col-span-2">
+          <span className="mb-1 block text-xs text-zinc-500">Nome do destinatário *</span>
           <input
             className={inputClass}
             value={value.recipient_name}
-            onChange={(e) => set("recipient_name", e.target.value)}
+            onChange={(e) => update({ recipient_name: maskPersonName(e.target.value) })}
             placeholder="Nome completo"
+            autoComplete="name"
+            required
           />
         </label>
         <label>
-          <span className="mb-1 block text-xs text-zinc-500">Telefone</span>
+          <span className="mb-1 block text-xs text-zinc-500">Telefone *</span>
           <input
             className={inputClass}
+            type="tel"
+            inputMode="numeric"
             value={value.phone}
-            onChange={(e) => set("phone", e.target.value)}
+            onChange={(e) => update({ phone: maskPhone(e.target.value) })}
             placeholder="(11) 99999-9999"
+            autoComplete="tel"
+            maxLength={15}
+            required
           />
         </label>
         <label>
-          <span className="mb-1 block text-xs text-zinc-500">CEP</span>
+          <span className="mb-1 block text-xs text-zinc-500">CEP *</span>
           <input
             className={inputClass}
+            type="text"
+            inputMode="numeric"
             value={value.postal_code}
-            onChange={(e) => set("postal_code", e.target.value)}
+            onChange={(e) => update({ postal_code: maskCep(e.target.value) })}
             onBlur={(e) => lookupCep(e.target.value)}
             placeholder="00000-000"
+            autoComplete="postal-code"
+            maxLength={9}
+            required
           />
           {cepLoading && (
             <span className="mt-1 block text-xs text-zinc-400">Buscando CEP...</span>
@@ -91,19 +113,24 @@ export function ShippingAddressForm({ value, onChange, compact }: ShippingAddres
           )}
         </label>
         <label className="sm:col-span-2">
-          <span className="mb-1 block text-xs text-zinc-500">Rua / Avenida</span>
+          <span className="mb-1 block text-xs text-zinc-500">Rua / Avenida *</span>
           <input
             className={inputClass}
             value={value.street}
-            onChange={(e) => set("street", e.target.value)}
+            onChange={(e) => update({ street: e.target.value.slice(0, 200) })}
+            autoComplete="street-address"
+            required
           />
         </label>
         <label>
-          <span className="mb-1 block text-xs text-zinc-500">Número</span>
+          <span className="mb-1 block text-xs text-zinc-500">Número *</span>
           <input
             className={inputClass}
             value={value.number}
-            onChange={(e) => set("number", e.target.value)}
+            onChange={(e) => update({ number: maskHouseNumber(e.target.value) })}
+            placeholder="424 ou S/N"
+            inputMode="text"
+            required
           />
         </label>
         <label>
@@ -111,24 +138,27 @@ export function ShippingAddressForm({ value, onChange, compact }: ShippingAddres
           <input
             className={inputClass}
             value={value.complement ?? ""}
-            onChange={(e) => set("complement", e.target.value)}
+            onChange={(e) => update({ complement: e.target.value.slice(0, 80) })}
             placeholder="Apto, bloco (opcional)"
           />
         </label>
         <label>
-          <span className="mb-1 block text-xs text-zinc-500">Bairro</span>
+          <span className="mb-1 block text-xs text-zinc-500">Bairro *</span>
           <input
             className={inputClass}
             value={value.neighborhood}
-            onChange={(e) => set("neighborhood", e.target.value)}
+            onChange={(e) => update({ neighborhood: maskCityName(e.target.value) })}
+            required
           />
         </label>
         <label>
-          <span className="mb-1 block text-xs text-zinc-500">Cidade</span>
+          <span className="mb-1 block text-xs text-zinc-500">Cidade *</span>
           <input
             className={inputClass}
             value={value.city}
-            onChange={(e) => set("city", e.target.value)}
+            onChange={(e) => update({ city: maskCityName(e.target.value) })}
+            autoComplete="address-level2"
+            required
           />
         </label>
         <label>
@@ -136,8 +166,9 @@ export function ShippingAddressForm({ value, onChange, compact }: ShippingAddres
           <input
             className={inputClass}
             value={value.state}
-            onChange={(e) => set("state", e.target.value.toUpperCase().slice(0, 2))}
+            onChange={(e) => update({ state: maskUf(e.target.value) })}
             placeholder="SP"
+            autoComplete="address-level1"
             maxLength={2}
             required
           />
