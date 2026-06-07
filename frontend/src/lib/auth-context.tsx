@@ -49,20 +49,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fetchProfile()
   }, [fetchProfile])
 
+  const establishSession = useCallback(async () => {
+    const data = await api.get<User>("/auth/profile")
+    setUser(data)
+    return data
+  }, [])
+
   const login = useCallback(
     async (credentials: LoginRequest) => {
       await api.post<AuthResponse>("/auth/login", credentials)
-      await fetchProfile()
+      try {
+        await establishSession()
+      } catch (err) {
+        await clearStaleSession()
+        throw err
+      } finally {
+        setIsLoading(false)
+      }
     },
-    [fetchProfile]
+    [establishSession, clearStaleSession]
   )
 
   const signUp = useCallback(
     async (data: SignUpRequest) => {
       await api.post<AuthResponse>("/auth/sign-in", data)
-      await fetchProfile()
+      try {
+        await establishSession()
+      } catch (err) {
+        await clearStaleSession()
+        throw err
+      } finally {
+        setIsLoading(false)
+      }
     },
-    [fetchProfile]
+    [establishSession, clearStaleSession]
   )
 
   const logout = useCallback(async () => {

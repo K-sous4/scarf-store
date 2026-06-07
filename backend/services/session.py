@@ -3,7 +3,7 @@ import json
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, Tuple
-import redis
+from utils.redis_client import make_redis_client
 
 
 class SessionManager:
@@ -11,8 +11,7 @@ class SessionManager:
 
     def __init__(self):
         """Initialize Redis connection."""
-        self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-        self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
+        self.redis_client = make_redis_client()
         self.session_ttl = 24 * 60 * 60  # 24 hours in seconds
 
     def create_session(self, user_id: int, username: str, role: str) -> str:

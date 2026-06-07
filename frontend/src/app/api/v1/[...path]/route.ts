@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
+export const runtime = "nodejs"
+
 const BACKEND_URL = (process.env.BACKEND_URL ?? "http://localhost:8000").replace(/\/$/, "")
 
 const FORWARD_REQUEST_HEADERS = ["content-type", "accept", "authorization", "cookie"]
@@ -46,8 +48,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const init: RequestInit = {
     method: request.method,
     headers,
-    // Não seguir 307 para onrender.com — evita perder cookie do domínio Vercel
-    redirect: "manual",
+    // Segue redirects só no servidor (com Cookie), sem expor onrender.com ao browser
+    redirect: "follow",
   }
 
   if (request.method !== "GET" && request.method !== "HEAD") {

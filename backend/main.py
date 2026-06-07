@@ -55,6 +55,14 @@ async def lifespan(app: FastAPI):
         logging.error(f"✗ Error creating tables: {e}")
 
     try:
+        from services.session import session_manager
+
+        session_manager.redis_client.ping()
+        logging.info("✓ Redis conectado")
+    except Exception as e:
+        logging.error(f"✗ Redis indisponível (sessões não funcionarão): {e}")
+
+    try:
         db = SessionLocal()
         seed_admin(db)
         seed_catalog = (

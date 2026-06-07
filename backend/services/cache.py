@@ -6,12 +6,11 @@ Usage pattern:
   2. On write (create / update / delete): invalidate the relevant cache keys.
 """
 
-import os
 import json
 import logging
 from typing import Any, Optional
 
-import redis
+from utils.redis_client import make_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +22,7 @@ class CacheService:
     """Redis-backed JSON cache with pattern-aware invalidation."""
 
     def __init__(self) -> None:
-        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-        self._client = redis.from_url(redis_url, decode_responses=True)
+        self._client = make_redis_client()
 
     # ── read ──────────────────────────────────────────────────────────────────
 
