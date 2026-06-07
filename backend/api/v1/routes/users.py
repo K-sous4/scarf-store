@@ -182,7 +182,7 @@ async def update_my_profile(
 
 # ============= ADMIN =============
 
-@router.get("/", response_model=dict)
+@router.get("", response_model=dict)
 async def list_users(
     current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
@@ -200,7 +200,7 @@ async def list_users(
     }
 
 
-@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
     request: AdminCreateUserRequest,
     current_admin: User = Depends(get_current_admin),

@@ -532,7 +532,7 @@ export default function ProductsPage() {
         const data = await api.get<{ products: Product[] }>("/products/admin/all?limit=500&active_only=false")
         setProducts(data.products ?? [])
       } else {
-        const data = await api.get<{ products: Product[] }>("/products/?limit=500")
+        const data = await api.get<{ products: Product[] }>("/products?limit=500")
         setProducts(data.products ?? [])
       }
     } finally {
@@ -542,9 +542,9 @@ export default function ProductsPage() {
 
   const loadFilters = useCallback(async () => {
     const [cats, cols, mats] = await Promise.allSettled([
-      api.get<FilterOption[]>("/categories/"),
-      api.get<FilterOption[]>("/colors/"),
-      api.get<FilterOption[]>("/materials/"),
+      api.get<FilterOption[]>("/categories"),
+      api.get<FilterOption[]>("/colors"),
+      api.get<FilterOption[]>("/materials"),
     ])
     if (cats.status === "fulfilled") setCategories(cats.value)
     if (cols.status === "fulfilled") setColors(cols.value)
@@ -623,7 +623,7 @@ export default function ProductsPage() {
     try {
       const payload = formToPayload(form)
       if (modal === "create") {
-        createdProduct = await api.post<Product>("/products/", payload)
+        createdProduct = await api.post<Product>("/products", payload)
 
         const uploadedUrls = await uploadImages(createdProduct.id, imageFiles)
         if (uploadedUrls.length > 0) {

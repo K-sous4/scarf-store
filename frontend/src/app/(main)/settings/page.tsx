@@ -224,7 +224,7 @@ function CategoriesTab() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await api.get<Category[]>("/categories/")
+      const data = await api.get<Category[]>("/categories")
       setItems(data)
     } finally {
       setLoading(false)
@@ -252,7 +252,7 @@ function CategoriesTab() {
     setError(null)
     try {
       if (modal === "create") {
-        await api.post("/categories/", form)
+        await api.post("/categories", form)
       } else {
         await api.put(`/categories/${editing!.id}`, form)
       }
@@ -391,7 +391,7 @@ function ColorsTab() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await api.get<Color[]>("/colors/")
+      const data = await api.get<Color[]>("/colors")
       setItems(data)
     } finally {
       setLoading(false)
@@ -419,7 +419,7 @@ function ColorsTab() {
     setError(null)
     try {
       if (modal === "create") {
-        await api.post("/colors/", form)
+        await api.post("/colors", form)
       } else {
         await api.put(`/colors/${editing!.id}`, form)
       }
@@ -548,7 +548,7 @@ function MaterialsTab() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await api.get<Material[]>("/materials/")
+      const data = await api.get<Material[]>("/materials")
       setItems(data)
     } finally {
       setLoading(false)
@@ -576,7 +576,7 @@ function MaterialsTab() {
     setError(null)
     try {
       if (modal === "create") {
-        await api.post("/materials/", form)
+        await api.post("/materials", form)
       } else {
         await api.put(`/materials/${editing!.id}`, form)
       }
@@ -720,7 +720,7 @@ function UsersTab() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await api.get<{ users: User[] }>("/users/")
+      const data = await api.get<{ users: User[] }>("/users")
       setItems(data.users ?? [])
     } finally {
       setLoading(false)
@@ -748,7 +748,7 @@ function UsersTab() {
     setError(null)
     try {
       if (modal === "create") {
-        await api.post("/users/", {
+        await api.post("/users", {
           username: form.username,
           email: form.email || undefined,
           password: form.password,
@@ -906,7 +906,7 @@ function PaymentTab() {
     setLoading(true)
     setError(null)
     try {
-      const data = await api.get<PaymentSettings>("/payment-settings/")
+      const data = await api.get<PaymentSettings>("/payment-settings")
       setForm({
         phone_number: data.phone_number ?? "",
         delivery_commitment_days: data.delivery_commitment_days ?? 7,
@@ -927,7 +927,7 @@ function PaymentTab() {
     setSuccess(false)
     try {
       const cleaned = form.phone_number.trim()
-      const data = await api.put<PaymentSettings>("/payment-settings/", {
+      const data = await api.put<PaymentSettings>("/payment-settings", {
         phone_number: cleaned ? cleaned : null,
         delivery_commitment_days: form.delivery_commitment_days,
       })

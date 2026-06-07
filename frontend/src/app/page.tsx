@@ -388,7 +388,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1"
-    fetch(`${apiBase}/products/?limit=500`, { credentials: "include" })
+    fetch(`${apiBase}/products?limit=500`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data: { products: Product[]; total: number } | Product[]) => {
         const list = Array.isArray(data) ? data : (data as { products: Product[] }).products ?? []

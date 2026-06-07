@@ -93,7 +93,8 @@ app = FastAPI(
     title="Scarf Store API",
     version="1.0.0",
     debug=(ENVIRONMENT == Environment.DEVELOPMENT),
-    lifespan=lifespan
+    lifespan=lifespan,
+    redirect_slashes=False,
 )
 
 # Configure CORS

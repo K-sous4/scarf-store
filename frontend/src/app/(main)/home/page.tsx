@@ -1049,7 +1049,7 @@ export default function HomePage() {
     try {
       setPaymentError(null)
 
-      const stockResponse = await fetch(`${apiBase}/products/?limit=500`, {
+      const stockResponse = await fetch(`${apiBase}/products?limit=500`, {
         credentials: "include",
       })
       if (!stockResponse.ok) {
@@ -1085,7 +1085,7 @@ export default function HomePage() {
       }
       setPaymentPhone(phone)
 
-      const response = await fetch(`${apiBase}/orders/`, {
+      const response = await fetch(`${apiBase}/orders`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1159,7 +1159,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (isAdmin) return
-    fetch(`${apiBase}/products/?limit=500`, { credentials: "include" })
+    fetch(`${apiBase}/products?limit=500`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data: { products: Product[] } | Product[]) => {
         const list = Array.isArray(data) ? data : (data as { products: Product[] }).products ?? []

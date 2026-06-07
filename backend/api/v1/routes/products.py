@@ -35,7 +35,7 @@ async def get_product_image(image_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Imagem não encontrada")
     return Response(content=image.data, media_type=image.content_type or "application/octet-stream")
 
-@router.get("/", response_model=dict)
+@router.get("", response_model=dict)
 async def list_products(
     db: Session = Depends(get_db),
     skip: int = Query(0, ge=0),
@@ -149,7 +149,7 @@ async def upload_product_images(
         db.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Erro ao salvar imagens")
 
-@router.post("/", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
 async def create_product(
     product_data: ProductCreateRequest,
     current_admin: User = Depends(get_current_admin),

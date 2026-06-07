@@ -15,7 +15,7 @@ _CACHE_PREFIX = "filter:categories"
 
 # ============= PUBLIC =============
 
-@router.get("/", response_model=List[CategoryResponse])
+@router.get("", response_model=List[CategoryResponse])
 async def list_categories(
     skip: int = 0,
     limit: int = 100,
@@ -49,7 +49,7 @@ async def get_category(category_id: int, db: Session = Depends(get_db)):
 
 # ============= ADMIN =============
 
-@router.post("/", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
 async def create_category(
     category: CategoryCreate,
     current_admin: User = Depends(get_current_admin),

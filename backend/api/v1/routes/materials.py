@@ -15,7 +15,7 @@ _CACHE_PREFIX = "filter:materials"
 
 # ============= PUBLIC =============
 
-@router.get("/", response_model=List[MaterialResponse])
+@router.get("", response_model=List[MaterialResponse])
 async def list_materials(
     skip: int = 0,
     limit: int = 100,
@@ -49,7 +49,7 @@ async def get_material(material_id: int, db: Session = Depends(get_db)):
 
 # ============= ADMIN =============
 
-@router.post("/", response_model=MaterialResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=MaterialResponse, status_code=status.HTTP_201_CREATED)
 async def create_material(
     material: MaterialCreate,
     current_admin: User = Depends(get_current_admin),

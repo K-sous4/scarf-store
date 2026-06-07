@@ -4,6 +4,8 @@ const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Evita 308 /api/.../ → /api/... que depois redireciona ao Render sem cookie
+  skipTrailingSlashRedirect: true,
   async rewrites() {
     return [
       {

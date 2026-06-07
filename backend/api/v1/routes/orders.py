@@ -72,7 +72,7 @@ def _build_pix_txid(order_id: int) -> str:
     return f"SCARFSTORE{order_id}"[:25].upper()
 
 
-@router.post("/", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 async def create_order(
     payload: OrderCreateRequest,
     current_user: User = Depends(get_current_user),

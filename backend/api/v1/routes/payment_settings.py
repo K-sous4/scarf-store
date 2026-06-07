@@ -16,7 +16,7 @@ def _normalize_phone(value: str | None) -> str | None:
     return cleaned or None
 
 
-@router.get("/", response_model=PaymentSettingsResponse)
+@router.get("", response_model=PaymentSettingsResponse)
 async def get_payment_settings(
     current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
@@ -41,7 +41,7 @@ async def get_payment_settings_public(db: Session = Depends(get_db)):
     }
 
 
-@router.put("/", response_model=PaymentSettingsResponse)
+@router.put("", response_model=PaymentSettingsResponse)
 async def update_payment_settings(
     payload: PaymentSettingsUpdate,
     current_admin: User = Depends(get_current_admin),

@@ -15,7 +15,7 @@ _CACHE_PREFIX = "filter:colors"
 
 # ============= PUBLIC =============
 
-@router.get("/", response_model=List[ColorResponse])
+@router.get("", response_model=List[ColorResponse])
 async def list_colors(
     skip: int = 0,
     limit: int = 100,
@@ -49,7 +49,7 @@ async def get_color(color_id: int, db: Session = Depends(get_db)):
 
 # ============= ADMIN =============
 
-@router.post("/", response_model=ColorResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ColorResponse, status_code=status.HTTP_201_CREATED)
 async def create_color(
     color: ColorCreate,
     current_admin: User = Depends(get_current_admin),
