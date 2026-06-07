@@ -343,6 +343,37 @@ async def mark_paid(
     return order
 
 
+@router.post("/{order_id}/tracking", response_model=OrderAdminResponse)
+async def set_tracking(
+    order_id: int,
+    payload: OrderMarkDeliveredRequest,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    order = (
+        db.query(Order)
+        .options(selectinload(Order.items), selectinload(Order.user))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pedido nao encontrado")
+
+    if order.status == ORDER_STATUS_CANCELLED:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Pedido cancelado")
+    if order.status not in (ORDER_STATUS_PAID, ORDER_STATUS_DELIVERED):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Informe o rastreio apos confirmar o pagamento",
+        )
+
+    order.delivery_note = (payload.delivery_note or "").strip() or None
+
+    db.commit()
+    db.refresh(order)
+    return order
+
+
 @router.post("/{order_id}/mark-delivered", response_model=OrderAdminResponse)
 async def mark_delivered(
     order_id: int,
@@ -369,10 +400,11 @@ async def mark_delivered(
             detail="Confirme o pagamento antes de registrar a entrega",
         )
 
+    note = (payload.delivery_note or "").strip() or (order.delivery_note or "").strip()
     order.status = ORDER_STATUS_DELIVERED
     order.delivered_at = datetime.utcnow()
     order.delivered_by_admin_id = current_admin.id
-    order.delivery_note = (payload.delivery_note or "").strip() or None
+    order.delivery_note = note or None
 
     db.commit()
     db.refresh(order)
