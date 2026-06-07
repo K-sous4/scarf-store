@@ -133,6 +133,7 @@ function CartDrawer({
   shippingAddress,
   hasProfileAddress,
   profileLoading,
+  missingFieldsLabel,
 }: {
   items: CartItem[]
   onClose: () => void
@@ -148,6 +149,7 @@ function CartDrawer({
   shippingAddress: ShippingAddress
   hasProfileAddress: boolean
   profileLoading: boolean
+  missingFieldsLabel: string
 }) {
   const total = items.reduce((s, i) => s + unitPrice(i.product) * i.qty, 0)
   const totalItems = items.reduce((s, i) => s + i.qty, 0)
@@ -289,11 +291,23 @@ function CartDrawer({
             {!profileLoading && !hasProfileAddress && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
                 <p className="text-xs text-amber-800">
-                  Complete e-mail e endereço em{" "}
-                  <Link href="/profile" className="font-semibold underline">
-                    Meu perfil
-                  </Link>{" "}
-                  para finalizar a compra.
+                  {missingFieldsLabel ? (
+                    <>
+                      Falta no perfil: <strong>{missingFieldsLabel}</strong>. Atualize em{" "}
+                      <Link href="/profile" className="font-semibold underline">
+                        Meu perfil
+                      </Link>
+                      .
+                    </>
+                  ) : (
+                    <>
+                      Complete e-mail e endereço em{" "}
+                      <Link href="/profile" className="font-semibold underline">
+                        Meu perfil
+                      </Link>{" "}
+                      para finalizar a compra.
+                    </>
+                  )}
                 </p>
               </div>
             )}
@@ -924,6 +938,7 @@ export default function HomePage() {
   const {
     shippingAddress: profileShipping,
     hasShippingAddress: hasProfileAddress,
+    missingFieldsLabel,
     isLoading: profileLoading,
     reload: reloadUserProfile,
   } = useUserProfile(profileEnabled)
@@ -1194,11 +1209,23 @@ export default function HomePage() {
 
       {!isAdmin && !profileLoading && !hasProfileAddress && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Para comprar, complete seu e-mail e endereço de entrega em{" "}
-          <Link href="/profile" className="font-semibold underline">
-            Meu perfil
-          </Link>
-          .
+          {missingFieldsLabel ? (
+            <>
+              Para comprar, complete no perfil: <strong>{missingFieldsLabel}</strong> —{" "}
+              <Link href="/profile" className="font-semibold underline">
+                Meu perfil
+              </Link>
+              .
+            </>
+          ) : (
+            <>
+              Para comprar, complete seu e-mail e endereço de entrega em{" "}
+              <Link href="/profile" className="font-semibold underline">
+                Meu perfil
+              </Link>
+              .
+            </>
+          )}
         </div>
       )}
 
@@ -1322,6 +1349,7 @@ export default function HomePage() {
           shippingAddress={shippingAddress}
           hasProfileAddress={hasProfileAddress}
           profileLoading={profileLoading}
+          missingFieldsLabel={missingFieldsLabel}
         />
       )}
       <PurchaseTermsModal

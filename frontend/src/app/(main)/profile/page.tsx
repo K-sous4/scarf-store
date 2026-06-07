@@ -9,6 +9,7 @@ import { PROFILE_UPDATED_EVENT } from "@/lib/use-user-profile"
 import { useAuth } from "@/lib/auth-context"
 import {
   EMPTY_SHIPPING,
+  formatMissingShippingFields,
   isShippingComplete,
   profileHasShippingAddress,
   profileToShipping,
@@ -37,6 +38,19 @@ function validateProfileForm(
   const state = shipping.state.trim()
   if (state.length > 0 && state.length !== 2) {
     return "UF deve ter 2 letras (ex: SP)."
+  }
+
+  const hasAnyAddress = Boolean(
+    shipping.postal_code.trim() ||
+      shipping.street.trim() ||
+      shipping.number.trim() ||
+      shipping.neighborhood.trim() ||
+      shipping.city.trim() ||
+      shipping.state.trim() ||
+      shipping.phone.trim()
+  )
+  if (hasAnyAddress && !isShippingComplete(shipping)) {
+    return `Complete o endereço: falta ${formatMissingShippingFields(shipping)}.`
   }
 
   return null

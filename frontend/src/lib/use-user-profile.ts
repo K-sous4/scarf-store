@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { api } from "@/lib/api"
 import {
+  formatMissingShippingFields,
+  missingShippingFields,
+  profileHasEmail,
   profileReadyForCheckout,
   profileToShipping,
   type ShippingAddress,
@@ -17,6 +20,8 @@ export function useUserProfile(enabled: boolean) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null)
   const [hasShippingAddress, setHasShippingAddress] = useState(false)
+  const [missingFields, setMissingFields] = useState<string[]>([])
+  const [missingFieldsLabel, setMissingFieldsLabel] = useState("")
   const [isLoading, setIsLoading] = useState(enabled)
 
   const reload = useCallback(async () => {
@@ -24,6 +29,8 @@ export function useUserProfile(enabled: boolean) {
       setProfile(null)
       setShippingAddress(null)
       setHasShippingAddress(false)
+      setMissingFields([])
+      setMissingFieldsLabel("")
       setIsLoading(false)
       return null
     }
@@ -31,14 +38,27 @@ export function useUserProfile(enabled: boolean) {
     setIsLoading(true)
     try {
       const data = await api.get<UserProfile>("/users/me")
+      const shipping = profileToShipping(data)
+      const missing = [...missingShippingFields(shipping)]
+      if (!profileHasEmail(data)) missing.unshift("e-mail")
       setProfile(data)
-      setShippingAddress(profileToShipping(data))
+      setShippingAddress(shipping)
       setHasShippingAddress(profileReadyForCheckout(data))
+      setMissingFields(missing)
+      setMissingFieldsLabel(
+        missing.length === 0
+          ? ""
+          : missing.length === 1
+            ? missing[0]
+            : `${missing.slice(0, -1).join(", ")} e ${missing.at(-1)}`
+      )
       return data
     } catch {
       setProfile(null)
       setShippingAddress(null)
       setHasShippingAddress(false)
+      setMissingFields([])
+      setMissingFieldsLabel("")
       return null
     } finally {
       setIsLoading(false)
@@ -71,6 +91,8 @@ export function useUserProfile(enabled: boolean) {
     profile,
     shippingAddress,
     hasShippingAddress,
+    missingFields,
+    missingFieldsLabel,
     isLoading,
     reload,
   }

@@ -59,16 +59,27 @@ export const EMPTY_SHIPPING: ShippingAddress = {
 }
 
 export function isShippingComplete(address: ShippingAddress): boolean {
-  return Boolean(
-    address.recipient_name.trim() &&
-      address.phone.trim() &&
-      address.postal_code.replace(/\D/g, "").length === 8 &&
-      address.street.trim() &&
-      address.number.trim() &&
-      address.neighborhood.trim() &&
-      address.city.trim() &&
-      address.state.trim().length === 2
-  )
+  return missingShippingFields(address).length === 0
+}
+
+export function missingShippingFields(address: ShippingAddress): string[] {
+  const missing: string[] = []
+  if (!address.recipient_name.trim()) missing.push("nome do destinatário")
+  if (!address.phone.trim()) missing.push("telefone")
+  if (address.postal_code.replace(/\D/g, "").length !== 8) missing.push("CEP")
+  if (!address.street.trim()) missing.push("rua")
+  if (!address.number.trim()) missing.push("número")
+  if (!address.neighborhood.trim()) missing.push("bairro")
+  if (!address.city.trim()) missing.push("cidade")
+  if (address.state.trim().length !== 2) missing.push("UF")
+  return missing
+}
+
+export function formatMissingShippingFields(address: ShippingAddress): string {
+  const fields = missingShippingFields(address)
+  if (fields.length === 0) return ""
+  if (fields.length === 1) return fields[0]
+  return `${fields.slice(0, -1).join(", ")} e ${fields.at(-1)}`
 }
 
 export function profileToShipping(profile: UserProfile): ShippingAddress {
