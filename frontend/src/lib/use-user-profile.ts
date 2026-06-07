@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { api } from "@/lib/api"
+import { formatShippingForDisplay } from "@/lib/input-masks"
 import {
   formatMissingShippingFields,
   missingShippingFields,
@@ -38,7 +39,7 @@ export function useUserProfile(enabled: boolean) {
     setIsLoading(true)
     try {
       const data = await api.get<UserProfile>("/users/me")
-      const shipping = profileToShipping(data)
+      const shipping = formatShippingForDisplay(profileToShipping(data))
       const missing = [...missingShippingFields(shipping)]
       if (!profileHasEmail(data)) missing.unshift("e-mail")
       setProfile(data)
