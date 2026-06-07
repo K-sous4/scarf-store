@@ -49,15 +49,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fetchProfile()
   }, [fetchProfile])
 
-  const login = useCallback(async (credentials: LoginRequest) => {
-    const data = await api.post<AuthResponse>("/auth/login", credentials)
-    setUser(data.user)
-  }, [])
+  const login = useCallback(
+    async (credentials: LoginRequest) => {
+      await api.post<AuthResponse>("/auth/login", credentials)
+      await fetchProfile()
+    },
+    [fetchProfile]
+  )
 
-  const signUp = useCallback(async (data: SignUpRequest) => {
-    const response = await api.post<AuthResponse>("/auth/sign-in", data)
-    setUser(response.user)
-  }, [])
+  const signUp = useCallback(
+    async (data: SignUpRequest) => {
+      await api.post<AuthResponse>("/auth/sign-in", data)
+      await fetchProfile()
+    },
+    [fetchProfile]
+  )
 
   const logout = useCallback(async () => {
     try {
