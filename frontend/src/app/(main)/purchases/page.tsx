@@ -71,6 +71,12 @@ function formatDate(value: string) {
   return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })
 }
 
+function correiosTrackingUrl(code: string) {
+  const trimmed = code.trim()
+  if (!/^[A-Za-z0-9]{8,20}$/.test(trimmed)) return null
+  return `https://rastreamento.correios.com.br/app/index.php?objeto=${encodeURIComponent(trimmed)}`
+}
+
 export default function PurchasesPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
@@ -202,6 +208,27 @@ export default function PurchasesPage() {
                 </div>
               )}
 
+              {order.delivery_note && (
+                <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-sky-600">
+                    Código de rastreio
+                  </p>
+                  <p className="mt-1 font-mono text-sm font-semibold text-sky-900 break-all">
+                    {order.delivery_note}
+                  </p>
+                  {correiosTrackingUrl(order.delivery_note) && (
+                    <a
+                      href={correiosTrackingUrl(order.delivery_note)!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-block text-xs font-medium text-sky-700 hover:text-sky-900 underline"
+                    >
+                      Rastrear nos Correios
+                    </a>
+                  )}
+                </div>
+              )}
+
               <div className="mt-4 space-y-3">
                 {order.items.map((item) => (
                   <div key={`${order.id}-${item.product_id}`} className="flex items-center justify-between text-sm">
@@ -237,7 +264,6 @@ export default function PurchasesPage() {
                 {order.status === "delivered" && order.delivered_at && (
                   <p className="w-full text-xs text-emerald-800">
                     Entrega registrada em {formatDate(order.delivered_at)}
-                    {order.delivery_note ? ` · ${order.delivery_note}` : ""}
                   </p>
                 )}
                 {order.status === "pending_payment" && order.pix_key && order.pix_txid && (

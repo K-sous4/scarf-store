@@ -85,6 +85,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
+  const [savingTrackingId, setSavingTrackingId] = useState<number | null>(null)
   const [deliveryNotes, setDeliveryNotes] = useState<Record<number, string>>({})
 
   useEffect(() => {
@@ -97,6 +98,13 @@ export default function OrdersPage() {
     try {
       const data = await api.get<Order[]>("/orders/admin")
       setOrders(data)
+      setDeliveryNotes(
+        Object.fromEntries(
+          data
+            .filter((order) => order.delivery_note)
+            .map((order) => [order.id, order.delivery_note!])
+        )
+      )
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erro ao carregar pedidos")
     } finally {
@@ -119,6 +127,26 @@ export default function OrdersPage() {
       setConfirmingId(null)
     }
   }, [])
+
+  const saveTracking = useCallback(async (orderId: number) => {
+    const note = (deliveryNotes[orderId] ?? "").trim()
+    if (note.length < 3) {
+      setError("Informe um codigo de rastreio valido.")
+      return
+    }
+    setSavingTrackingId(orderId)
+    setError(null)
+    try {
+      const updated = await api.post<Order>(`/orders/${orderId}/tracking`, {
+        delivery_note: note,
+      })
+      setOrders((prev) => prev.map((order) => (order.id === orderId ? updated : order)))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Nao foi possivel salvar o rastreio")
+    } finally {
+      setSavingTrackingId(null)
+    }
+  }, [deliveryNotes])
 
   const markDelivered = useCallback(async (orderId: number) => {
     setConfirmingId(orderId)
@@ -241,13 +269,21 @@ export default function OrdersPage() {
                 {order.status === "paid" && (
                   <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                     <input
-                      value={deliveryNotes[order.id] ?? ""}
+                      value={deliveryNotes[order.id] ?? order.delivery_note ?? ""}
                       onChange={(e) =>
                         setDeliveryNotes((prev) => ({ ...prev, [order.id]: e.target.value }))
                       }
-                      placeholder="Codigo de rastreio ou observacao"
+                      placeholder="Codigo de rastreio"
                       className="w-full sm:w-56 rounded-lg border border-zinc-200 px-3 py-2 text-xs text-zinc-900"
                     />
+                    <button
+                      type="button"
+                      onClick={() => saveTracking(order.id)}
+                      disabled={savingTrackingId === order.id}
+                      className="rounded-lg border border-sky-200 px-4 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-50 disabled:opacity-50"
+                    >
+                      {savingTrackingId === order.id ? "Salvando..." : "Salvar rastreio"}
+                    </button>
                     <button
                       onClick={() => markDelivered(order.id)}
                       disabled={confirmingId === order.id}
@@ -258,7 +294,9 @@ export default function OrdersPage() {
                   </div>
                 )}
                 {order.status === "delivered" && order.delivery_note && (
-                  <span className="text-xs text-emerald-700">{order.delivery_note}</span>
+                  <span className="text-xs text-emerald-700">
+                    Rastreio: {order.delivery_note}
+                  </span>
                 )}
                 {order.status === "pending_payment" && (
                   <span className="text-xs text-amber-700">Aguardando cliente informar pagamento</span>
