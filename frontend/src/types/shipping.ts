@@ -27,11 +27,23 @@ export interface UserProfile {
   has_shipping_address?: boolean
 }
 
+export function profileHasEmail(profile: UserProfile): boolean {
+  return Boolean(profile.email?.trim())
+}
+
 export function profileHasShippingAddress(profile: UserProfile): boolean {
-  if (profile.has_shipping_address !== undefined) {
-    return profile.has_shipping_address
+  if (profile.has_shipping_address === true) {
+    return true
+  }
+  if (profile.has_shipping_address === false) {
+    return isShippingComplete(profileToShipping(profile))
   }
   return isShippingComplete(profileToShipping(profile))
+}
+
+/** Perfil pronto para comprar: e-mail + endereço completo (mesma regra do backend). */
+export function profileReadyForCheckout(profile: UserProfile): boolean {
+  return profileHasEmail(profile) && profileHasShippingAddress(profile)
 }
 
 export const EMPTY_SHIPPING: ShippingAddress = {

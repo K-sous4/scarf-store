@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ShippingAddressForm } from "@/components/ShippingAddressForm"
 import { api, ApiError } from "@/lib/api"
+import { PROFILE_UPDATED_EVENT } from "@/lib/use-user-profile"
 import { useAuth } from "@/lib/auth-context"
 import {
   EMPTY_SHIPPING,
@@ -137,6 +138,7 @@ export default function ProfilePage() {
       setNewPassword("")
       await loadProfile()
       await refreshUser()
+      window.dispatchEvent(new Event(PROFILE_UPDATED_EVENT))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Nao foi possivel salvar")
     } finally {

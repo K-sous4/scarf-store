@@ -6,13 +6,12 @@ import { PixQrCode } from "@/components/PixQrCode"
 import { PurchaseTermsModal } from "@/components/PurchaseTermsModal"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
+import { useUserProfile } from "@/lib/use-user-profile"
 import { usePurchaseTerms } from "@/lib/use-purchase-terms"
 import {
   formatShippingAddressSummary,
-  profileHasShippingAddress,
-  profileToShipping,
+  EMPTY_SHIPPING,
   type ShippingAddress,
-  type UserProfile,
 } from "@/types/shipping"
 import {
   buildPixPayload,
@@ -133,6 +132,7 @@ function CartDrawer({
   termsSummary,
   shippingAddress,
   hasProfileAddress,
+  profileLoading,
 }: {
   items: CartItem[]
   onClose: () => void
@@ -147,6 +147,7 @@ function CartDrawer({
   termsSummary: string
   shippingAddress: ShippingAddress
   hasProfileAddress: boolean
+  profileLoading: boolean
 }) {
   const total = items.reduce((s, i) => s + unitPrice(i.product) * i.qty, 0)
   const totalItems = items.reduce((s, i) => s + i.qty, 0)
@@ -285,22 +286,25 @@ function CartDrawer({
         {/* Footer */}
         {items.length > 0 && (
           <div className="border-t border-zinc-100 px-5 py-4 space-y-3 max-h-[55vh] overflow-y-auto">
-            <div className="rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-3">
-              <p className="text-xs font-medium text-zinc-500">Endereço de entrega (perfil)</p>
-              {hasProfileAddress ? (
-                <p className="mt-1 text-xs text-zinc-800 leading-relaxed">
-                  {formatShippingAddressSummary(shippingAddress)}
-                </p>
-              ) : (
-                <p className="mt-1 text-xs text-amber-700">
-                  Cadastre um endereço completo em{" "}
+            {!profileLoading && !hasProfileAddress && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+                <p className="text-xs text-amber-800">
+                  Complete e-mail e endereço em{" "}
                   <Link href="/profile" className="font-semibold underline">
                     Meu perfil
                   </Link>{" "}
                   para finalizar a compra.
                 </p>
-              )}
-            </div>
+              </div>
+            )}
+            {hasProfileAddress && (
+              <div className="rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-3">
+                <p className="text-xs font-medium text-zinc-500">Endereço de entrega</p>
+                <p className="mt-1 text-xs text-zinc-800 leading-relaxed">
+                  {formatShippingAddressSummary(shippingAddress)}
+                </p>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-sm text-zinc-500">Total</span>
               <span className="text-base font-bold text-zinc-900">{formatPrice(total)}</span>
@@ -916,42 +920,21 @@ export default function HomePage() {
   const [confirmingPayment, setConfirmingPayment] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [termsModalOpen, setTermsModalOpen] = useState(false)
-  const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
-    recipient_name: "",
-    phone: "",
-    postal_code: "",
-    street: "",
-    number: "",
-    complement: "",
-    neighborhood: "",
-    city: "",
-    state: "",
-  })
-  const [hasProfileAddress, setHasProfileAddress] = useState(false)
+  const profileEnabled = !isAdmin && !!user
+  const {
+    shippingAddress: profileShipping,
+    hasShippingAddress: hasProfileAddress,
+    isLoading: profileLoading,
+    reload: reloadUserProfile,
+  } = useUserProfile(profileEnabled)
+  const shippingAddress = profileShipping ?? EMPTY_SHIPPING
   const { terms: purchaseTerms } = usePurchaseTerms()
 
-  const loadUserProfile = useCallback(async () => {
-    try {
-      const profile = await api.get<UserProfile>("/users/me")
-      setShippingAddress(profileToShipping(profile))
-      setHasProfileAddress(profileHasShippingAddress(profile))
-      return profile
-    } catch {
-      setHasProfileAddress(false)
-      return null
-    }
-  }, [])
-
   useEffect(() => {
-    if (isAdmin || !user) return
-    loadUserProfile()
-  }, [isAdmin, user, loadUserProfile])
-
-  useEffect(() => {
-    if (cartOpen && !isAdmin && user) {
-      loadUserProfile()
+    if (cartOpen && profileEnabled) {
+      reloadUserProfile()
     }
-  }, [cartOpen, isAdmin, user, loadUserProfile])
+  }, [cartOpen, profileEnabled, reloadUserProfile])
 
   useEffect(() => {
     setTermsAccepted(false)
@@ -1040,9 +1023,9 @@ export default function HomePage() {
 
   const openCheckout = useCallback(async (total: number) => {
     if (cartItems.length === 0) return
-    const profile = await loadUserProfile()
-    if (!profile || !profileHasShippingAddress(profile)) {
-      showToast("Cadastre um endereco completo em Meu perfil antes de comprar.")
+    const profile = await reloadUserProfile()
+    if (!profile || !hasProfileAddress) {
+      showToast("Complete e-mail e endereco em Meu perfil antes de comprar.")
       return
     }
     setCheckoutLoading(true)
@@ -1119,7 +1102,7 @@ export default function HomePage() {
     } finally {
       setCheckoutLoading(false)
     }
-  }, [apiBase, cartItems, fetchPaymentPhone, loadUserProfile, purchaseTerms.version, showToast])
+  }, [apiBase, cartItems, fetchPaymentPhone, hasProfileAddress, reloadUserProfile, purchaseTerms.version, showToast])
 
   const closeCheckout = useCallback(() => {
     setPaymentOpen(false)
@@ -1209,9 +1192,9 @@ export default function HomePage() {
         )}
       </div>
 
-      {!isAdmin && !hasProfileAddress && (
+      {!isAdmin && !profileLoading && !hasProfileAddress && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Para comprar, cadastre seu endereço de entrega em{" "}
+          Para comprar, complete seu e-mail e endereço de entrega em{" "}
           <Link href="/profile" className="font-semibold underline">
             Meu perfil
           </Link>
@@ -1338,6 +1321,7 @@ export default function HomePage() {
           termsSummary={purchaseTerms.summary}
           shippingAddress={shippingAddress}
           hasProfileAddress={hasProfileAddress}
+          profileLoading={profileLoading}
         />
       )}
       <PurchaseTermsModal
