@@ -1,8 +1,12 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.exc import IntegrityError
+from models.order import Order, OrderItem
 from models.product import Product
+from services.order_stock import release_order_reservations
 from decimal import Decimal
 from typing import Optional, List
+
+_OPEN_ORDER_STATUSES = ("pending_payment", "payment_reported")
 
 
 class ProductService:
@@ -181,8 +185,28 @@ class ProductService:
         product = ProductService.get_product(db, product_id)
         if not product:
             return False
-        
+
         try:
+            items = db.query(OrderItem).filter(OrderItem.product_id == product_id).all()
+            if items:
+                order_ids = {item.order_id for item in items}
+                open_orders = (
+                    db.query(Order)
+                    .options(selectinload(Order.items))
+                    .filter(
+                        Order.id.in_(order_ids),
+                        Order.status.in_(_OPEN_ORDER_STATUSES),
+                    )
+                    .all()
+                )
+                for order in open_orders:
+                    release_order_reservations(order, db)
+
+                db.query(OrderItem).filter(OrderItem.product_id == product_id).update(
+                    {OrderItem.product_id: None},
+                    synchronize_session=False,
+                )
+
             db.delete(product)
             db.commit()
             return True

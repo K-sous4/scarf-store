@@ -37,7 +37,7 @@ class OrderConfirmPaymentRequest(BaseModel):
 
 
 class OrderItemResponse(BaseModel):
-    product_id: int
+    product_id: Optional[int] = None
     product_name: str
     unit_price: Decimal
     quantity: int

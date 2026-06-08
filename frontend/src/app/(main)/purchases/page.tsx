@@ -16,7 +16,7 @@ import { usePurchaseTerms } from "@/lib/use-purchase-terms"
 import { formatShippingLine } from "@/types/shipping"
 
 interface OrderItem {
-  product_id: number
+  product_id: number | null
   product_name: string
   unit_price: number
   quantity: number
@@ -231,7 +231,7 @@ export default function PurchasesPage() {
 
               <div className="mt-4 space-y-3">
                 {order.items.map((item) => (
-                  <div key={`${order.id}-${item.product_id}`} className="flex items-center justify-between text-sm">
+                  <div key={`${order.id}-${item.product_id ?? item.product_name}`} className="flex items-center justify-between text-sm">
                     <div>
                       <p className="font-medium text-zinc-900">{item.product_name}</p>
                       <p className="text-xs text-zinc-400">{item.quantity}x {formatPrice(item.unit_price)}</p>
