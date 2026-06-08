@@ -64,6 +64,12 @@ def ensure_order_columns():
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_city VARCHAR(100)",
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_state VARCHAR(2)",
         "ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_address_formatted VARCHAR(500)",
+        "ALTER TABLE order_items ALTER COLUMN product_id DROP NOT NULL",
+    ]
+    fk_statements = [
+        "ALTER TABLE order_items DROP CONSTRAINT IF EXISTS order_items_product_id_fkey",
+        """ALTER TABLE order_items ADD CONSTRAINT order_items_product_id_fkey
+           FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL""",
     ]
     backfill = """
         UPDATE orders o
@@ -77,6 +83,11 @@ def ensure_order_columns():
         with engine.begin() as conn:
             for sql in statements:
                 conn.execute(text(sql))
+            for sql in fk_statements:
+                try:
+                    conn.execute(text(sql))
+                except Exception as fk_exc:
+                    logger.warning("ensure_order_columns fk: %s", fk_exc)
             conn.execute(text(backfill))
     except Exception as exc:
         logger.warning("ensure_order_columns: %s", exc)
