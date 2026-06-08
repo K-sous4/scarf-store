@@ -4,7 +4,7 @@ export const runtime = "nodejs"
 
 const BACKEND_URL = (process.env.BACKEND_URL ?? "http://localhost:8000").replace(/\/$/, "")
 
-const FORWARD_REQUEST_HEADERS = ["content-type", "accept", "authorization", "cookie"]
+const FORWARD_REQUEST_HEADERS = ["content-type", "accept", "cookie"]
 
 function buildBackendUrl(request: NextRequest, pathSegments: string[]) {
   const path = pathSegments.join("/")
@@ -13,11 +13,22 @@ function buildBackendUrl(request: NextRequest, pathSegments: string[]) {
   return url
 }
 
+const STRIP_RESPONSE_HEADERS = new Set([
+  "connection",
+  "content-encoding",
+  "content-length",
+  "transfer-encoding",
+  "server",
+  "x-powered-by",
+  "x-render-origin-server",
+  "rndr-id",
+  "x-render-routing",
+])
+
 function forwardResponseHeaders(backend: Response, response: NextResponse) {
-  const skip = new Set(["connection", "content-encoding", "content-length", "transfer-encoding"])
   backend.headers.forEach((value, key) => {
     const lower = key.toLowerCase()
-    if (skip.has(lower) || lower === "set-cookie") return
+    if (STRIP_RESPONSE_HEADERS.has(lower) || lower === "set-cookie") return
     response.headers.set(key, value)
   })
 
@@ -59,6 +70,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const backend = await fetch(url, init)
   const response = new NextResponse(backend.body, { status: backend.status })
   forwardResponseHeaders(backend, response)
+  response.headers.set("X-Content-Type-Options", "nosniff")
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
   return response
 }
 

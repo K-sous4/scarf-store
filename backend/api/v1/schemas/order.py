@@ -60,6 +60,38 @@ class OrderUserSummary(BaseModel):
         from_attributes = True
 
 
+class OrderCustomerResponse(BaseModel):
+    """Pedido visto pelo cliente — sem PII redundante nem metadados internos."""
+
+    id: int
+    status: OrderStatus
+    payment_method: str
+    total_amount: Decimal
+    pix_txid: Optional[str] = None
+    pix_key: Optional[str] = None
+    payment_reference: Optional[str] = None
+    terms_version: Optional[str] = None
+    delivered_at: Optional[datetime] = None
+    delivery_note: Optional[str] = None
+    shipping_postal_code: Optional[str] = None
+    shipping_street: Optional[str] = None
+    shipping_number: Optional[str] = None
+    shipping_complement: Optional[str] = None
+    shipping_neighborhood: Optional[str] = None
+    shipping_city: Optional[str] = None
+    shipping_state: Optional[str] = None
+    shipping_address_formatted: Optional[str] = None
+    created_at: datetime
+    items: List[OrderItemResponse]
+
+    @field_serializer("total_amount")
+    def serialize_total_amount(self, value: Decimal) -> str:
+        return format(value, "f")
+
+    class Config:
+        from_attributes = True
+
+
 class OrderResponse(BaseModel):
     id: int
     user_id: int

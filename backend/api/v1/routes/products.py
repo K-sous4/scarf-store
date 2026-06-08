@@ -8,6 +8,8 @@ from api.v1.dependencies import get_current_admin
 from api.v1.schemas.product import (
     ProductCreateRequest,
     ProductUpdateRequest,
+    ProductListPublicResponse,
+    ProductPublicResponse,
     ProductResponse,
     ProductImagesUploadResponse,
 )
@@ -35,7 +37,7 @@ async def get_product_image(image_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Imagem não encontrada")
     return Response(content=image.data, media_type=image.content_type or "application/octet-stream")
 
-@router.get("", response_model=dict)
+@router.get("", response_model=ProductListPublicResponse)
 async def list_products(
     db: Session = Depends(get_db),
     skip: int = Query(0, ge=0),
@@ -45,12 +47,12 @@ async def list_products(
     Lista todos os produtos ativos (público)
     """
     products, total = ProductService.list_products(db, skip=skip, limit=limit, active_only=True)
-    return {
-        "total": total,
-        "skip": skip,
-        "limit": limit,
-        "products": [ProductResponse.model_validate(p) for p in products]
-    }
+    return ProductListPublicResponse(
+        total=total,
+        skip=skip,
+        limit=limit,
+        products=[ProductPublicResponse.from_product(p) for p in products],
+    )
 
 
 @router.get("/low-stock", response_model=dict)
@@ -77,7 +79,7 @@ async def list_low_stock(
     }
 
 
-@router.get("/{product_id}", response_model=ProductResponse)
+@router.get("/{product_id}", response_model=ProductPublicResponse)
 async def get_product(product_id: int, db: Session = Depends(get_db)):
     """
     Obtém detalhes de um produto ativo (público)
@@ -85,7 +87,7 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
     product = ProductService.get_product(db, product_id)
     if not product or not product.is_active:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Produto não encontrado")
-    return product
+    return ProductPublicResponse.from_product(product)
 
 
 # ============= ADMIN =============

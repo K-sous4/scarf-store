@@ -20,6 +20,7 @@ from services.order_expiry import expire_stale_pending_orders, order_expiry_loop
 from middlewares.session_refresh import SessionRefreshMiddleware
 from middlewares.session_state import SessionStateMiddleware
 from middlewares.logging import AuditLoggingMiddleware
+from middlewares.security_headers import SecurityHeadersMiddleware
 
 
 # Define environment modes
@@ -96,13 +97,18 @@ async def lifespan(app: FastAPI):
     logging.info("Application shutdown")
 
 
+_is_dev = ENVIRONMENT == Environment.DEVELOPMENT
+
 # Create FastAPI app with appropriate settings
 app = FastAPI(
     title="Scarf Store API",
     version="1.0.0",
-    debug=(ENVIRONMENT == Environment.DEVELOPMENT),
+    debug=_is_dev,
     lifespan=lifespan,
     redirect_slashes=False,
+    docs_url="/docs" if _is_dev else None,
+    redoc_url="/redoc" if _is_dev else None,
+    openapi_url="/openapi.json" if _is_dev else None,
 )
 
 # Configure CORS
@@ -126,6 +132,7 @@ else:
 
 # Add middlewares in the correct order (added REVERSE - last added is executed first)
 # Order of execution: AuditLogging -> SessionRefresh -> CORS
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(SessionStateMiddleware)
 app.add_middleware(AuditLoggingMiddleware)
 app.add_middleware(SessionRefreshMiddleware)
@@ -151,16 +158,14 @@ app.include_router(orders.router, prefix="/api/v1")
 
 @app.get("/ping")
 def pong():
-    return {
-        "msg": "pong",
-        "mode": ENVIRONMENT
-    }
+    if _is_dev:
+        return {"msg": "pong", "mode": ENVIRONMENT}
+    return {"msg": "pong"}
 
 
 @app.get("/health")
 def health():
-    return {
-        "status": "healthy",
-        "environment": ENVIRONMENT
-    }
+    if _is_dev:
+        return {"status": "healthy", "environment": ENVIRONMENT}
+    return {"status": "healthy"}
 

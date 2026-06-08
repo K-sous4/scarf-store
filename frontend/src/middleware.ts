@@ -29,7 +29,7 @@ export function middleware(request: NextRequest) {
 
   const role = request.cookies.get("user_role")?.value
   const isAdminRoute = ADMIN_PREFIXES.some((p) => pathname.startsWith(p))
-  if (isAuthenticated && isAdminRoute && role && role !== "admin") {
+  if (isAuthenticated && isAdminRoute && role !== "admin") {
     return NextResponse.redirect(new URL("/home", request.url))
   }
 
