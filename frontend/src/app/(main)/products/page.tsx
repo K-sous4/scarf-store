@@ -526,15 +526,11 @@ export default function ProductsPage() {
   }, [isLoading, user, router])
 
   const loadProducts = useCallback(async () => {
+    if (!isAdmin) return
     setLoadingProducts(true)
     try {
-      if (isAdmin) {
-        const data = await api.get<{ products: Product[] }>("/products/admin/all?limit=500&active_only=false")
-        setProducts(data.products ?? [])
-      } else {
-        const data = await api.get<{ products: Product[] }>("/products?limit=500")
-        setProducts(data.products ?? [])
-      }
+      const data = await api.get<{ products: Product[] }>("/products/admin/all?limit=500&active_only=false")
+      setProducts(data.products ?? [])
     } finally {
       setLoadingProducts(false)
     }
@@ -552,9 +548,10 @@ export default function ProductsPage() {
   }, [])
 
   useEffect(() => {
+    if (isLoading || !isAdmin) return
     loadProducts()
     loadFilters()
-  }, [loadProducts, loadFilters])
+  }, [isLoading, isAdmin, loadProducts, loadFilters])
 
   function openCreate() {
     setForm(EMPTY_FORM)

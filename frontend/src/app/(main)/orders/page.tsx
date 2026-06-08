@@ -92,7 +92,10 @@ export default function OrdersPage() {
     if (!isLoading && user?.role !== "admin") router.replace("/home")
   }, [isLoading, user, router])
 
+  const isAdmin = user?.role === "admin"
+
   const loadOrders = useCallback(async () => {
+    if (!isAdmin) return
     setLoading(true)
     setError(null)
     try {
@@ -110,11 +113,12 @@ export default function OrdersPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [isAdmin])
 
   useEffect(() => {
+    if (isLoading || !isAdmin) return
     loadOrders()
-  }, [loadOrders])
+  }, [isLoading, isAdmin, loadOrders])
 
   const markPaid = useCallback(async (orderId: number) => {
     setConfirmingId(orderId)

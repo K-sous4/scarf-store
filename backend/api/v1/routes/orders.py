@@ -14,6 +14,7 @@ from api.v1.schemas.order import (
     OrderCreateRequest,
     OrderConfirmPaymentRequest,
     OrderMarkDeliveredRequest,
+    OrderCustomerResponse,
     OrderResponse,
     OrderAdminResponse,
     OrderStatus,
@@ -72,7 +73,7 @@ def _build_pix_txid(order_id: int) -> str:
     return f"SCARFSTORE{order_id}"[:25].upper()
 
 
-@router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=OrderCustomerResponse, status_code=status.HTTP_201_CREATED)
 async def create_order(
     payload: OrderCreateRequest,
     current_user: User = Depends(get_current_user),
@@ -200,7 +201,7 @@ async def create_order(
     return order
 
 
-@router.get("/me", response_model=list[OrderResponse])
+@router.get("/me", response_model=list[OrderCustomerResponse])
 async def list_my_orders(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -227,7 +228,7 @@ async def list_all_orders(
     return query.order_by(Order.created_at.desc()).all()
 
 
-@router.post("/{order_id}/cancel", response_model=OrderResponse)
+@router.post("/{order_id}/cancel", response_model=OrderCustomerResponse)
 async def cancel_order(
     order_id: int,
     current_user: User = Depends(get_current_user),
@@ -257,7 +258,7 @@ async def cancel_order(
     return order
 
 
-@router.post("/{order_id}/confirm-payment", response_model=OrderResponse)
+@router.post("/{order_id}/confirm-payment", response_model=OrderCustomerResponse)
 async def confirm_payment(
     order_id: int,
     payload: OrderConfirmPaymentRequest,

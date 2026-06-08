@@ -216,7 +216,10 @@ export default function StockPage() {
     if (!isLoading && user?.role !== "admin") router.replace("/home")
   }, [isLoading, user, router])
 
+  const isAdmin = user?.role === "admin"
+
   const load = useCallback(async () => {
+    if (!isAdmin) return
     setLoadingProducts(true)
     try {
       const data = await api.get<{ products: Product[] }>(
@@ -226,9 +229,12 @@ export default function StockPage() {
     } finally {
       setLoadingProducts(false)
     }
-  }, [])
+  }, [isAdmin])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (isLoading || !isAdmin) return
+    load()
+  }, [isLoading, isAdmin, load])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()

@@ -14,37 +14,15 @@ import {
 import { PurchaseTermsModal } from "@/components/PurchaseTermsModal"
 import { usePurchaseTerms } from "@/lib/use-purchase-terms"
 import { formatShippingLine } from "@/types/shipping"
+import {
+  mapPurchaseOrder,
+  mapPurchaseOrders,
+  type PurchaseOrder,
+  type PurchaseOrderStatus,
+} from "@/lib/api-mappers"
 
-interface OrderItem {
-  product_id: number | null
-  product_name: string
-  unit_price: number
-  quantity: number
-  total_price: number
-}
-
-type OrderStatus = "pending_payment" | "payment_reported" | "paid" | "delivered" | "cancelled"
-
-interface Order {
-  id: number
-  status: OrderStatus
-  payment_method: string
-  total_amount: number
-  created_at: string
-  pix_txid?: string | null
-  pix_key?: string | null
-  payment_reference?: string | null
-  terms_version?: string | null
-  delivered_at?: string | null
-  delivery_note?: string | null
-  shipping_address_formatted?: string | null
-  shipping_street?: string | null
-  shipping_number?: string | null
-  shipping_city?: string | null
-  shipping_state?: string | null
-  shipping_postal_code?: string | null
-  items: OrderItem[]
-}
+type OrderStatus = PurchaseOrderStatus
+type Order = PurchaseOrder
 
 const statusStyles: Record<OrderStatus, string> = {
   pending_payment: "bg-amber-50 text-amber-700",
@@ -99,8 +77,8 @@ export default function PurchasesPage() {
     setLoading(true)
     setError(null)
     try {
-      const data = await api.get<Order[]>("/orders/me")
-      setOrders(data)
+      const data = await api.get<unknown>("/orders/me")
+      setOrders(mapPurchaseOrders(data))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Erro ao carregar compras")
     } finally {
@@ -116,8 +94,10 @@ export default function PurchasesPage() {
     setCancellingId(orderId)
     setError(null)
     try {
-      const updated = await api.post<Order>(`/orders/${orderId}/cancel`)
-      setOrders((prev) => prev.map((order) => (order.id === orderId ? updated : order)))
+      const updated = await api.post<unknown>(`/orders/${orderId}/cancel`)
+      setOrders((prev) =>
+        prev.map((order) => (order.id === orderId ? mapPurchaseOrder(updated as Record<string, unknown>) : order))
+      )
       setPixOpenId((id) => (id === orderId ? null : id))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Nao foi possivel cancelar o pedido")
@@ -134,8 +114,10 @@ export default function PurchasesPage() {
     }
     setConfirmingId(orderId)
     try {
-      const updated = await api.post<Order>(`/orders/${orderId}/confirm-payment`, { reference })
-      setOrders((prev) => prev.map((order) => (order.id === orderId ? updated : order)))
+      const updated = await api.post<unknown>(`/orders/${orderId}/confirm-payment`, { reference })
+      setOrders((prev) =>
+        prev.map((order) => (order.id === orderId ? mapPurchaseOrder(updated as Record<string, unknown>) : order))
+      )
       setReferences((prev) => ({ ...prev, [orderId]: "" }))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Nao foi possivel confirmar o pagamento")

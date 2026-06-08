@@ -18,7 +18,6 @@ export const PROFILE_UPDATED_EVENT = "scarf-profile-updated"
 
 export function useUserProfile(enabled: boolean) {
   const pathname = usePathname()
-  const [profile, setProfile] = useState<UserProfile | null>(null)
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress | null>(null)
   const [hasShippingAddress, setHasShippingAddress] = useState(false)
   const [missingFields, setMissingFields] = useState<string[]>([])
@@ -27,13 +26,12 @@ export function useUserProfile(enabled: boolean) {
 
   const reload = useCallback(async () => {
     if (!enabled) {
-      setProfile(null)
       setShippingAddress(null)
       setHasShippingAddress(false)
       setMissingFields([])
       setMissingFieldsLabel("")
       setIsLoading(false)
-      return null
+      return false
     }
 
     setIsLoading(true)
@@ -42,9 +40,9 @@ export function useUserProfile(enabled: boolean) {
       const shipping = formatShippingForDisplay(profileToShipping(data))
       const missing = [...missingShippingFields(shipping)]
       if (!profileHasEmail(data)) missing.unshift("e-mail")
-      setProfile(data)
+      const ready = profileReadyForCheckout(data)
       setShippingAddress(shipping)
-      setHasShippingAddress(profileReadyForCheckout(data))
+      setHasShippingAddress(ready)
       setMissingFields(missing)
       setMissingFieldsLabel(
         missing.length === 0
@@ -53,14 +51,13 @@ export function useUserProfile(enabled: boolean) {
             ? missing[0]
             : `${missing.slice(0, -1).join(", ")} e ${missing.at(-1)}`
       )
-      return data
+      return ready
     } catch {
-      setProfile(null)
       setShippingAddress(null)
       setHasShippingAddress(false)
       setMissingFields([])
       setMissingFieldsLabel("")
-      return null
+      return false
     } finally {
       setIsLoading(false)
     }
@@ -89,7 +86,6 @@ export function useUserProfile(enabled: boolean) {
   }, [enabled, reload])
 
   return {
-    profile,
     shippingAddress,
     hasShippingAddress,
     missingFields,

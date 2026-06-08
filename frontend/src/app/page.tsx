@@ -6,23 +6,11 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { ApiError } from "@/lib/api"
 import { ProductPreviewModal } from "@/components/ProductPreviewModal"
+import { mapPublicProducts, type PublicProduct } from "@/lib/api-mappers"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface Product {
-  id: number
-  name: string
-  short_description: string | null
-  price: number
-  discount_percentage: number
-  discount_price: number | null
-  category: string
-  color: string | null
-  material: string | null
-  is_new: boolean
-  is_featured: boolean
-  images: string[] | null
-}
+type Product = PublicProduct
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -390,9 +378,8 @@ export default function LandingPage() {
     const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1"
     fetch(`${apiBase}/products?limit=500`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((data: { products: Product[]; total: number } | Product[]) => {
-        const list = Array.isArray(data) ? data : (data as { products: Product[] }).products ?? []
-        setProducts(list)
+      .then((data: unknown) => {
+        setProducts(mapPublicProducts(data))
       })
       .catch(() => setProducts([]))
       .finally(() => setLoading(false))

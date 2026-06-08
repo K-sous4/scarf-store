@@ -19,26 +19,11 @@ import {
   PIX_MERCHANT_CITY,
   PIX_MERCHANT_NAME,
 } from "@/lib/pix"
+import { mapPublicProducts, type PublicProduct } from "@/lib/api-mappers"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface Product {
-  id: number
-  name: string
-  short_description: string | null
-  price: number
-  discount_percentage: number
-  discount_price: number | null
-  category: string
-  color: string | null
-  material: string | null
-  is_new: boolean
-  is_featured: boolean
-  is_active?: boolean
-  images: string[] | null
-  available_stock: number
-  low_stock_threshold: number
-}
+type Product = PublicProduct
 
 interface CartItem {
   product: Product
@@ -737,7 +722,7 @@ function ProductCard({
   const hasDiscount = product.discount_percentage > 0
   const isOutOfStock = product.available_stock <= 0
   const isLowStock =
-    !isOutOfStock && product.available_stock <= product.low_stock_threshold
+    !isOutOfStock && product.is_low_stock
   const image =
     resolveImageUrl(pickPrimaryImage(product.images)) ??
     `https://placehold.co/400x300/f4f4f5/71717a?text=${encodeURIComponent(product.name)}`
@@ -1038,8 +1023,8 @@ export default function HomePage() {
 
   const openCheckout = useCallback(async (total: number) => {
     if (cartItems.length === 0) return
-    const profile = await reloadUserProfile()
-    if (!profile || !hasProfileAddress) {
+    const profileReady = await reloadUserProfile()
+    if (!profileReady) {
       showToast("Complete e-mail e endereco em Meu perfil antes de comprar.")
       return
     }
@@ -1054,10 +1039,8 @@ export default function HomePage() {
         showToast("Nao foi possivel validar o estoque. Tente novamente.")
         return
       }
-      const stockData = await stockResponse.json() as { products: Product[] } | Product[]
-      const stockList = Array.isArray(stockData)
-        ? stockData
-        : (stockData as { products: Product[] }).products ?? []
+      const stockData: unknown = await stockResponse.json()
+      const stockList = mapPublicProducts(stockData)
       const stockById = new Map(stockList.map((p) => [p.id, p]))
 
       const refreshedCart = cartItems
@@ -1117,7 +1100,7 @@ export default function HomePage() {
     } finally {
       setCheckoutLoading(false)
     }
-  }, [apiBase, cartItems, fetchPaymentPhone, hasProfileAddress, reloadUserProfile, purchaseTerms.version, showToast])
+  }, [apiBase, cartItems, fetchPaymentPhone, reloadUserProfile, purchaseTerms.version, showToast])
 
   const closeCheckout = useCallback(() => {
     setPaymentOpen(false)
@@ -1159,9 +1142,8 @@ export default function HomePage() {
     if (isAdmin) return
     fetch(`${apiBase}/products?limit=500`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((data: { products: Product[] } | Product[]) => {
-        const list = Array.isArray(data) ? data : (data as { products: Product[] }).products ?? []
-        setProducts(list)
+      .then((data: unknown) => {
+        setProducts(mapPublicProducts(data))
       })
       .catch(() => setProducts([]))
       .finally(() => setLoadingProducts(false))
